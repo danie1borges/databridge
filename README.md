@@ -20,6 +20,18 @@ relatórios e processamento em lote, com integração a bancos MySQL e Oracle.
 
 ---
 
+## Screenshots
+
+| Login | Dashboard |
+|-------|-----------|
+| ![Login](screenshots/login.png) | ![Dashboard](screenshots/dashboard.png) |
+
+| Busca de Clientes | Relatórios |
+|-------------------|------------|
+| ![Busca](screenshots/busca.png) | ![Relatórios](screenshots/relatorios.png) |
+
+---
+
 ## Stack
 
 | Camada        | Tecnologias                                              |
@@ -121,9 +133,8 @@ databridge_analise/
 │   ├── index.html            # Template principal (app autenticado)
 │   └── login.html            # Tela de login
 ├── scripts/
-│   ├── sensitivity_config.yaml      # Config usada na sanitização dos dados
-│   ├── audit_sensitive.py           # Script de auditoria de dados sensíveis
-│   └── generate_synthetic_data.py   # Gerador de dados sintéticos (Faker pt_BR)
+│   └── generate_mockup_screenshots.py  # Gera mockups das telas (Faker + Playwright)
+├── screenshots/              # Mockups das telas para o README
 ├── DEPLOY_GITHUB.md          # Instruções de deploy
 ├── .gitignore
 └── requirements.txt

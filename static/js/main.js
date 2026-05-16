@@ -367,9 +367,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // --- Calculate KPIs ---
             const bases = [
-                { key: 'cad_unico', name: 'Mercury', icon: 'fa-credit-card', color: '#EC4899' },
-                { key: 'clientes', name: 'Área do Cliente', icon: 'fa-users', color: '#3B82F6' },
-                { key: 'estudantes', name: 'Sou Estudante', icon: 'fa-user-graduate', color: '#8B5CF6' },
+                { key: 'cad_unico', name: 'LegacyDB', icon: 'fa-credit-card', color: '#EC4899' },
+                { key: 'clientes', name: 'Portal Cliente', icon: 'fa-users', color: '#3B82F6' },
+                { key: 'estudantes', name: 'Portal Estudante', icon: 'fa-user-graduate', color: '#8B5CF6' },
                 { key: 'abt', name: 'ABT Data', icon: 'fa-database', color: '#10B981' },
                 { key: 'wifi', name: 'Wifi Max', icon: 'fa-wifi', color: '#F59E0B' },
                 { key: 'whatsapp', name: 'Whatsapp', icon: 'fa-brands fa-whatsapp', color: '#22C55E' },
@@ -445,26 +445,26 @@ document.addEventListener('DOMContentLoaded', () => {
             container.innerHTML = `<p class="text-danger">Erro de conexão.</p>`;
         }
 
-        loadEstudantesSemMercury();
+        loadEstudantesSemLegacyDB();
     }
 
-    async function loadEstudantesSemMercury() {
+    async function loadEstudantesSemLegacyDB() {
         const panel = document.getElementById('esm-panel');
         if (!panel) return;
 
         const badgeCartao  = document.getElementById('esm-count-cartao');
-        const badgeMercury = document.getElementById('esm-count-mercury');
+        const badgeLegacyDB = document.getElementById('esm-count-legacydb');
         try {
             const res  = await fetch('/api/dashboard/anomalias_estudantis');
             const data = await res.json();
             if (data.error) {
-                badgeCartao.textContent = badgeMercury.textContent = '—';
+                badgeCartao.textContent = badgeLegacyDB.textContent = '—';
                 return;
             }
             badgeCartao.textContent  = (data.sem_cartao  || 0).toLocaleString('pt-BR');
-            badgeMercury.textContent = (data.sem_mercury || 0).toLocaleString('pt-BR');
+            badgeLegacyDB.textContent = (data.sem_legacydb || 0).toLocaleString('pt-BR');
             document.getElementById('btn-esm-export-cartao').disabled  = false;
-            document.getElementById('btn-esm-export-mercury').disabled = false;
+            document.getElementById('btn-esm-export-legacydb').disabled = false;
 
             function wireExport(btnId, url) {
                 const btn = document.getElementById(btnId);
@@ -500,9 +500,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, { once: true });
             }
             wireExport('btn-esm-export-cartao',  '/api/dashboard/estudantes_sem_cartao/export');
-            wireExport('btn-esm-export-mercury', '/api/dashboard/estudantes_sem_mercury/export');
+            wireExport('btn-esm-export-legacydb', '/api/dashboard/estudantes_sem_legacydb/export');
         } catch (e) {
-            badgeCartao.textContent = badgeMercury.textContent = '—';
+            badgeCartao.textContent = badgeLegacyDB.textContent = '—';
         }
     }
 
@@ -659,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Chart.defaults.font.family = "'Inter', sans-serif";
         Chart.defaults.devicePixelRatio = Math.min(window.devicePixelRatio, 2);
 
-        const baseLabels = ['Mercury', 'Área do Cliente', 'Sou Estudante', 'ABT', 'Wifi Max', 'WhatsApp'];
+        const baseLabels = ['LegacyDB', 'Portal Cliente', 'Portal Estudante', 'ABT', 'Wifi Max', 'WhatsApp'];
         const baseKeys  = ['cad_unico', 'clientes', 'estudantes', 'abt', 'wifi', 'whatsapp'];
 
         const calcP = (key, sem) => {
@@ -1447,7 +1447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const hygieneHistoryFields = [
         { id: 'created_at', label: 'Data da execução', type: 'date' },
         { id: 'username', label: 'Operador Databridge', type: 'string', adminOnly: true },
-        { id: 'vtadmin_username', label: 'Operador VTAdmin', type: 'string' },
+        { id: 'adminpanel_username', label: 'Operador AdminPanel', type: 'string' },
         { id: 'observation', label: 'Observação', type: 'string' },
         { id: 'total_success', label: 'Quantidade de cartões', type: 'number' },
         { id: 'client_name', label: 'Nome do cliente', type: 'string' },
@@ -1655,7 +1655,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr class="hygiene-history-row" data-log-id="${escapeHtml(item.id || '')}" title="Clique para ver os detalhes do lote">
                     <td>${escapeHtml(item.created_at || '-')}</td>
                     <td><span class="att-resp-badge">${escapeHtml(item.username || 'Desconhecido')}</span></td>
-                    <td>${escapeHtml(item.vtadmin_username || '-')}</td>
+                    <td>${escapeHtml(item.adminpanel_username || '-')}</td>
                     <td><strong>${Number(item.total_success || 0).toLocaleString('pt-BR')}</strong></td>
                     <td>${escapeHtml(item.observation || 'Sem observação')}</td>
                     <td>${escapeHtml(item.filter_summary || 'Filtro não registrado')}</td>
@@ -1762,7 +1762,7 @@ document.addEventListener('DOMContentLoaded', () => {
             content.innerHTML = `
                 <div class="hygiene-history-detail-summary">
                     <div><span>Operador</span><strong>${escapeHtml(payload.username || 'Desconhecido')}</strong></div>
-                    <div><span>VTAdmin</span><strong>${escapeHtml(payload.vtadmin_username || '-')}</strong></div>
+                    <div><span>AdminPanel</span><strong>${escapeHtml(payload.adminpanel_username || '-')}</strong></div>
                     <div><span>Quantidade</span><strong>${Number(payload.total_success || 0).toLocaleString('pt-BR')}</strong></div>
                 </div>
                 <div class="hygiene-history-detail-note">
@@ -3233,20 +3233,20 @@ document.addEventListener('DOMContentLoaded', () => {
         let bestAddress = '';
         let bestAddressSrc = '';
 
-        // Mercury (cad_unico) is primary
+        // LegacyDB (cad_unico) is primary
         if (data.cad_unico) {
-            sources.push({ key: 'mercury', name: 'Mercury', icon: 'fa-credit-card', color: '#EC4899' });
+            sources.push({ key: 'legacydb', name: 'LegacyDB', icon: 'fa-credit-card', color: '#EC4899' });
             if (data.cad_unico.nome) bestName = data.cad_unico.nome;
-            if (data.cad_unico.email && !bestEmail) { bestEmail = data.cad_unico.email; bestEmailSrc = 'Mercury'; }
-            if (data.cad_unico.telefone && !bestPhone) { bestPhone = data.cad_unico.telefone; bestPhoneSrc = 'Mercury'; }
-            if (data.cad_unico.endereco && !bestAddress) { bestAddress = data.cad_unico.endereco; bestAddressSrc = 'Mercury'; }
+            if (data.cad_unico.email && !bestEmail) { bestEmail = data.cad_unico.email; bestEmailSrc = 'LegacyDB'; }
+            if (data.cad_unico.telefone && !bestPhone) { bestPhone = data.cad_unico.telefone; bestPhoneSrc = 'LegacyDB'; }
+            if (data.cad_unico.endereco && !bestAddress) { bestAddress = data.cad_unico.endereco; bestAddressSrc = 'LegacyDB'; }
         }
         if (data.sntr_cliente) {
-            sources.push({ key: 'cliente', name: 'Área do Cliente', icon: 'fa-users', color: '#3B82F6' });
+            sources.push({ key: 'cliente', name: 'Portal Cliente', icon: 'fa-users', color: '#3B82F6' });
             if (!bestName && data.sntr_cliente.nome) bestName = data.sntr_cliente.nome;
-            if (!bestEmail && data.sntr_cliente.email) { bestEmail = data.sntr_cliente.email; bestEmailSrc = 'Área do Cliente'; }
-            if (!bestPhone && data.sntr_cliente.celular) { bestPhone = data.sntr_cliente.celular; bestPhoneSrc = 'Área do Cliente'; }
-            if (!bestAddress && data.sntr_cliente.endereco) { bestAddress = data.sntr_cliente.endereco; bestAddressSrc = 'Área do Cliente'; }
+            if (!bestEmail && data.sntr_cliente.email) { bestEmail = data.sntr_cliente.email; bestEmailSrc = 'Portal Cliente'; }
+            if (!bestPhone && data.sntr_cliente.celular) { bestPhone = data.sntr_cliente.celular; bestPhoneSrc = 'Portal Cliente'; }
+            if (!bestAddress && data.sntr_cliente.endereco) { bestAddress = data.sntr_cliente.endereco; bestAddressSrc = 'Portal Cliente'; }
         }
         if (data.databridge_db_alunos) {
             sources.push({ key: 'estudante', name: 'Estudante', icon: 'fa-user-graduate', color: '#8B5CF6' });
@@ -3283,9 +3283,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="client-cpf"><i class="fa-regular fa-id-card"></i> ${data.cpf}</div>
                     <div class="presence-strip">
                         ${[
-                            { name: 'Mercury', icon: 'fa-credit-card', color: '#EC4899', found: !!data.cad_unico },
-                            { name: 'Área do Cliente', icon: 'fa-users', color: '#3B82F6', found: !!data.sntr_cliente },
-                            { name: 'Sou Estudante', icon: 'fa-user-graduate', color: '#8B5CF6', found: !!data.databridge_db_alunos },
+                            { name: 'LegacyDB', icon: 'fa-credit-card', color: '#EC4899', found: !!data.cad_unico },
+                            { name: 'Portal Cliente', icon: 'fa-users', color: '#3B82F6', found: !!data.sntr_cliente },
+                            { name: 'Portal Estudante', icon: 'fa-user-graduate', color: '#8B5CF6', found: !!data.databridge_db_alunos },
                             { name: 'ABT', icon: 'fa-database', color: '#10B981', found: !!data.abt_data },
                             { name: 'Wifi Max', icon: 'fa-wifi', color: '#F59E0B', found: !!data.wifi_users },
                             { name: 'WhatsApp', icon: 'fa-brands fa-whatsapp', color: '#22C55E', found: !!data.whatsapp },
@@ -3303,16 +3303,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // ===== CONSOLIDATED CONTACT =====
         html += `<div class="client-contact-strip">`;
 
-        // Helper to add warning if not from Mercury
+        // Helper to add warning if not from LegacyDB
         const getWarningHtml = (src) => {
-            if (src === 'Mercury') return '';
-            return `<i class="fa-solid fa-triangle-exclamation contact-warning" title="Este dado não está no Mercury! Foi preenchido através da base ${src}."></i>`;
+            if (src === 'LegacyDB') return '';
+            return `<i class="fa-solid fa-triangle-exclamation contact-warning" title="Este dado não está no LegacyDB! Foi preenchido através da base ${src}."></i>`;
         };
 
         const makeChip = (iconCls, value, src, withCopy) => {
-            const isWarn = src !== 'Mercury';
+            const isWarn = src !== 'LegacyDB';
             const warnIcon = isWarn
-                ? `<i class="fa-solid fa-triangle-exclamation contact-warning" title="Este dado não está no Mercury! Fonte: ${src}."></i>`
+                ? `<i class="fa-solid fa-triangle-exclamation contact-warning" title="Este dado não está no LegacyDB! Fonte: ${src}."></i>`
                 : '';
             const copyBtn = withCopy
                 ? `<button class="copy-btn" onclick="navigator.clipboard.writeText('${value.replace(/'/g,"\\'")}'); this.querySelector('i').className='fa-solid fa-check'; setTimeout(()=>this.querySelector('i').className='fa-regular fa-copy',1500)" title="Copiar"><i class="fa-regular fa-copy"></i></button>`
@@ -3340,7 +3340,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (data.sntr_cliente) {
             const c = data.sntr_cliente;
-            html += buildSourceCard('Área do Cliente', 'fa-users', '#3B82F6', [
+            html += buildSourceCard('Portal Cliente', 'fa-users', '#3B82F6', [
                 { icon: 'fa-envelope', label: 'E-mail', value: c.email },
                 { icon: 'fa-mobile-screen', label: 'Celular', value: c.celular },
                 { icon: 'fa-map-pin', label: 'Endereço', value: c.endereco },
@@ -3360,7 +3360,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     <span>Ver histórico <i class="fa-solid fa-arrow-right" style="font-size:0.65rem"></i></span>
                 </button>`;
-            html += buildSourceCard('Sou Estudante', 'fa-user-graduate', '#8B5CF6', [
+            html += buildSourceCard('Portal Estudante', 'fa-user-graduate', '#8B5CF6', [
                 { icon: 'fa-envelope', label: 'E-mail', value: a.email },
                 { icon: 'fa-mobile-screen', label: 'Celular', value: a.celular },
                 { icon: 'fa-map-pin', label: 'Endereço', value: a.endereco },
@@ -3390,12 +3390,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         html += `</div>`;
 
-        // ===== MERCURY CARDS SECTION =====
+        // ===== LEGACYDB CARDS SECTION =====
         if (data.cad_unico) {
             const cad = data.cad_unico;
             html += `<div class="glass-panel" style="margin-top:20px; border-left: 4px solid var(--accent-primary);">
                 <div class="section-title-row">
-                    <span class="section-title" style="color:var(--accent-primary); font-size:1.1rem;"><i class="fa-solid fa-credit-card"></i> Cartões Mercury</span>
+                    <span class="section-title" style="color:var(--accent-primary); font-size:1.1rem;"><i class="fa-solid fa-credit-card"></i> Cartões LegacyDB</span>
                     <span class="text-muted" style="font-size:0.75rem;"><i class="fa-solid fa-rotate" style="margin-right:4px;opacity:0.4;"></i>Atualizado: ${cad.data_atualizacao || '-'}</span>
                 </div>
                 <div class="card-usage-hint">
@@ -3447,14 +3447,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                         </div>
                                     </div>
                                     <div class="card-timeline" style="flex: 2; min-width: 250px; padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.05);">
-                                        <div class="mercury-info-grid">
-                                            <div class="mercury-info-item">
-                                                <div class="mercury-info-label"><i class="fa-solid fa-bus" style="color:#60A5FA"></i> ÚLTIMO USO</div>
-                                                <div class="mercury-info-value">${ultUso}${avisoUsoAposVencimento}</div>
+                                        <div class="legacydb-info-grid">
+                                            <div class="legacydb-info-item">
+                                                <div class="legacydb-info-label"><i class="fa-solid fa-bus" style="color:#60A5FA"></i> ÚLTIMO USO</div>
+                                                <div class="legacydb-info-value">${ultUso}${avisoUsoAposVencimento}</div>
                                             </div>
-                                            <div class="mercury-info-item">
-                                                <div class="mercury-info-label"><i class="fa-solid fa-money-bill-transfer" style="color:var(--success)"></i> ÚLTIMA RECARGA</div>
-                                                <div class="mercury-info-value">${ultRecarga}${valorRecarga ? '<br><strong style="color:var(--success)">' + valorRecarga + '</strong>' : ''}</div>
+                                            <div class="legacydb-info-item">
+                                                <div class="legacydb-info-label"><i class="fa-solid fa-money-bill-transfer" style="color:var(--success)"></i> ÚLTIMA RECARGA</div>
+                                                <div class="legacydb-info-value">${ultRecarga}${valorRecarga ? '<br><strong style="color:var(--success)">' + valorRecarga + '</strong>' : ''}</div>
                                             </div>
                                         </div>`;
 
@@ -3487,7 +3487,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             html += `<div class="glass-panel" style="margin-top:20px;text-align:center;padding:30px;">
                 <i class="fa-solid fa-folder-open" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:10px;"></i>
-                <span class="text-muted">Nenhum registro encontrado no Mercury (CAD ÚNICO)</span>
+                <span class="text-muted">Nenhum registro encontrado no LegacyDB (CAD ÚNICO)</span>
             </div>`;
         }
 
@@ -3505,10 +3505,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="student-history-title-icon">
                                 <i class="fa-solid fa-graduation-cap"></i>
                             </div>
-                            Histórico Sou Estudante
+                            Histórico Portal Estudante
                         </div>
-                        <a href="#" class="student-history-link" onclick="const cpf = document.getElementById('cpf-input').value.replace(/\\D/g, ''); if(navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(cpf).then(() => window.open('https://souestudante.example.com.br/alunos', '_blank')); } else { const ta = document.createElement('textarea'); ta.value = cpf; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); window.open('https://souestudante.example.com.br/alunos', '_blank'); }">
-                            Ir para Sou Estudante Manaus <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.75rem;"></i>
+                        <a href="#" class="student-history-link" onclick="const cpf = document.getElementById('cpf-input').value.replace(/\\D/g, ''); if(navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(cpf).then(() => window.open('https://estudante.example.com/alunos', '_blank')); } else { const ta = document.createElement('textarea'); ta.value = cpf; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); window.open('https://estudante.example.com/alunos', '_blank'); }">
+                            Ir para Portal Estudante <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:0.75rem;"></i>
                         </a>
                     </div>`;
 
@@ -3562,7 +3562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <i class="fa-solid fa-user-graduate" style="font-size:1.5rem;color:#8B5CF6;opacity:0.7;"></i>
                     </div>
                     <div style="color:var(--text);font-weight:500;">Nenhuma requisição</div>
-                    <div class="text-muted" style="font-size:0.9rem;margin-top:4px;">Este aluno não possui histórico de requisições no Sou Estudante.</div>
+                    <div class="text-muted" style="font-size:0.9rem;margin-top:4px;">Este aluno não possui histórico de requisições no Portal Estudante.</div>
                 </div>`;
             }
             html += `</div></div></div>`;
@@ -3696,7 +3696,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateProgress(data.progress, `Cruzando registros... ${data.processed}/${data.total}`);
 
                 const BASE_META = {
-                    mercury:   { label: 'M', color: '#EC4899' },
+                    legacydb:   { label: 'M', color: '#EC4899' },
                     cliente:   { label: 'C', color: '#3B82F6' },
                     estudante: { label: 'E', color: '#06B6D4' },
                     abt:       { label: 'A', color: '#6366F1' },
@@ -3793,9 +3793,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderBulkPreviewPanel(panel, fileName, d) {
         const BASE_DEFS = [
-            { key: 'mercury',   label: 'Mercury',       icon: 'fa-credit-card',     color: '#EC4899' },
-            { key: 'cliente',   label: 'Área do Cliente', icon: 'fa-user',           color: '#3B82F6' },
-            { key: 'estudante', label: 'Sou Estudante',  icon: 'fa-book-open',       color: '#06B6D4' },
+            { key: 'legacydb',   label: 'LegacyDB',       icon: 'fa-credit-card',     color: '#EC4899' },
+            { key: 'cliente',   label: 'Portal Cliente', icon: 'fa-user',           color: '#3B82F6' },
+            { key: 'estudante', label: 'Portal Estudante',  icon: 'fa-book-open',       color: '#06B6D4' },
             { key: 'abt',       label: 'ABT',            icon: 'fa-building',        color: '#6366F1' },
             { key: 'wifi',      label: 'Wifi Max',       icon: 'fa-wifi',            color: '#A855F7' },
             { key: 'whatsapp',  label: 'WhatsApp',       icon: 'fa-brands fa-whatsapp', color: '#22C55E' },
@@ -3971,7 +3971,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function buildPreviewTable(rows) {
         const BASE_META = {
-            mercury:   { label: 'M', color: '#EC4899' },
+            legacydb:   { label: 'M', color: '#EC4899' },
             cliente:   { label: 'C', color: '#3B82F6' },
             estudante: { label: 'E', color: '#06B6D4' },
             abt:       { label: 'A', color: '#6366F1' },
@@ -4078,7 +4078,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="detalhamento-grid">
                         <div class="det-card">
                             <i class="fa-solid fa-credit-card icon" style="color: #EC4899"></i>
-                            <div class="det-label">MERCURY</div>
+                            <div class="det-label">LEGACYDB</div>
                             <div class="det-val" style="color: #EC4899">${formatNum(data.stats.cad_unico)}</div>
                         </div>
                         <div class="det-card">
@@ -4609,8 +4609,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let reportHygieneFloatingTimer = null; // polling timer for floating popup
     let reportHygieneLastStatus = null;
     let reportHygieneFloatingRequested = false;
-    let reportHygieneVtadminUsername = '';
-    let reportHygieneVtadminPassword = '';
+    let reportHygieneAdminpanelUsername = '';
+    let reportHygieneAdminpanelPassword = '';
 
     function normalizeReportCardNumber(cardNumber) {
         return String(cardNumber || '').trim();
@@ -4685,8 +4685,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             Esta é uma ação delicada. Os cartões selecionados entrarão em lista de restrição com motivo <strong>HIGIENIZAÇÃO DE CADASTRO</strong>.
                         </div>
                         <div>
-                            <label style="display:block; font-weight:600; margin-bottom:8px;">Observação para o VTAdmin</label>
-                            <textarea id="report-hygiene-observation" class="form-control" rows="5" maxlength="2000" placeholder="Escreva a observação que será adicionada ao cadastro no VTAdmin."></textarea>
+                            <label style="display:block; font-weight:600; margin-bottom:8px;">Observação para o AdminPanel</label>
+                            <textarea id="report-hygiene-observation" class="form-control" rows="5" maxlength="2000" placeholder="Escreva a observação que será adicionada ao cadastro no AdminPanel."></textarea>
                             <div class="text-muted" style="font-size:0.85rem; margin-top:6px;">O texto novo será inserido acima dos comentários antigos.</div>
                         </div>
                         <div class="report-hygiene-toolbar">
@@ -4712,7 +4712,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="report-hygiene-progress-track">
                                 <div id="report-hygiene-progress-bar" class="report-hygiene-progress-bar"></div>
                             </div>
-                            <div id="report-hygiene-progress-detail" class="report-hygiene-progress-detail">Assim que o VTAdmin avançar, esta barra acompanha o andamento.</div>
+                            <div id="report-hygiene-progress-detail" class="report-hygiene-progress-detail">Assim que o AdminPanel avançar, esta barra acompanha o andamento.</div>
                         </div>
                         <div id="report-hygiene-error" class="login-error hidden"></div>
                         <div id="report-hygiene-result" class="hidden"></div>
@@ -4749,24 +4749,24 @@ document.addEventListener('DOMContentLoaded', () => {
             credentialModal.innerHTML = `
                 <div class="modal-card glass-panel report-hygiene-credentials-card">
                     <div class="modal-header report-hygiene-modal-header">
-                        <h3><i class="fa-solid fa-id-badge" style="color: #60A5FA; margin-right:8px;"></i> Credenciais do VTAdmin</h3>
+                        <h3><i class="fa-solid fa-id-badge" style="color: #60A5FA; margin-right:8px;"></i> Credenciais do AdminPanel</h3>
                         <button class="modal-close" id="report-hygiene-credentials-close"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <div class="report-hygiene-modal-body">
                         <div class="report-hygiene-hero report-hygiene-credentials-hero">
                             <div class="report-hygiene-hero-kicker">Autenticacao individual</div>
-                            <div class="report-hygiene-hero-text">Use seu acesso pessoal do VTAdmin. A validacao acontece antes da revisao do lote.</div>
+                            <div class="report-hygiene-hero-text">Use seu acesso pessoal do AdminPanel. A validacao acontece antes da revisao do lote.</div>
                         </div>
                         <div class="alert-box report-hygiene-credentials-alert">
-                            Informe seu <strong>usuário</strong> e <strong>senha</strong> do VTAdmin para executar a higienização. Essas credenciais serão usadas apenas nesta execução.
+                            Informe seu <strong>usuário</strong> e <strong>senha</strong> do AdminPanel para executar a higienização. Essas credenciais serão usadas apenas nesta execução.
                         </div>
                         <div class="report-hygiene-section">
-                            <label style="display:block; font-weight:600; margin-bottom:8px;">Usuário do VTAdmin</label>
-                            <input id="report-hygiene-vtadmin-username" type="text" class="form-control" autocomplete="username" placeholder="Digite seu usuário do VTAdmin">
+                            <label style="display:block; font-weight:600; margin-bottom:8px;">Usuário do AdminPanel</label>
+                            <input id="report-hygiene-adminpanel-username" type="text" class="form-control" autocomplete="username" placeholder="Digite seu usuário do AdminPanel">
                         </div>
                         <div class="report-hygiene-observation-block">
-                            <label style="display:block; font-weight:600; margin-bottom:8px;">Senha do VTAdmin</label>
-                            <input id="report-hygiene-vtadmin-password" type="password" class="form-control" autocomplete="current-password" placeholder="Digite sua senha do VTAdmin">
+                            <label style="display:block; font-weight:600; margin-bottom:8px;">Senha do AdminPanel</label>
+                            <input id="report-hygiene-adminpanel-password" type="password" class="form-control" autocomplete="current-password" placeholder="Digite sua senha do AdminPanel">
                         </div>
                         <div id="report-hygiene-credentials-error" class="login-error hidden"></div>
                         <div class="report-hygiene-footer">
@@ -4884,13 +4884,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('report-hygiene-credentials-modal');
         if (!modal) return;
         const errorEl = document.getElementById('report-hygiene-credentials-error');
-        const userInput = document.getElementById('report-hygiene-vtadmin-username');
-        const passwordInput = document.getElementById('report-hygiene-vtadmin-password');
+        const userInput = document.getElementById('report-hygiene-adminpanel-username');
+        const passwordInput = document.getElementById('report-hygiene-adminpanel-password');
         if (errorEl) errorEl.classList.add('hidden');
         if (userInput) userInput.value = '';
         if (passwordInput) passwordInput.value = '';
-        reportHygieneVtadminUsername = '';
-        reportHygieneVtadminPassword = '';
+        reportHygieneAdminpanelUsername = '';
+        reportHygieneAdminpanelPassword = '';
         modal.classList.remove('hidden');
         requestAnimationFrame(() => {
             modal.classList.add('show');
@@ -5005,7 +5005,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (progressBar) progressBar.style.width = '0%';
         if (progressPct) progressPct.textContent = '0%';
         if (progressLabel) progressLabel.textContent = 'Preparando execução...';
-        if (progressDetail) progressDetail.textContent = 'Assim que o VTAdmin avançar, esta barra acompanha o andamento.';
+        if (progressDetail) progressDetail.textContent = 'Assim que o AdminPanel avançar, esta barra acompanha o andamento.';
         if (resultEl) {
             resultEl.textContent = '';
             resultEl.className = 'hidden';
@@ -5053,7 +5053,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bar.style.width = `${percent}%`;
         pct.textContent = `${percent}%`;
         label.textContent = status.label || 'Processando higienização...';
-        detail.textContent = status.detail || 'O VTAdmin está executando as etapas do processamento.';
+        detail.textContent = status.detail || 'O AdminPanel está executando as etapas do processamento.';
         const cancelBtn = document.getElementById('report-hygiene-cancel');
         if (cancelBtn) {
             const isFinished = isFinishedHygieneStatus(status.status);
@@ -5154,7 +5154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bar.style.width = `${progress}%`;
         pct.textContent = `${progress}%`;
         label.textContent = 'Iniciando higienização...';
-        detail.textContent = `${totalItems} cliente(s) selecionado(s). A barra acompanhará as etapas reais do VTAdmin.`;
+        detail.textContent = `${totalItems} cliente(s) selecionado(s). A barra acompanhará as etapas reais do AdminPanel.`;
     }
 
     function finishReportHygieneProgress(successCount, failureCount) {
@@ -5303,7 +5303,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errorEl.classList.add('hidden');
 
         if (!observation) {
-            errorEl.textContent = 'Informe a observação que será enviada ao VTAdmin.';
+            errorEl.textContent = 'Informe a observação que será enviada ao AdminPanel.';
             errorEl.classList.remove('hidden');
             return;
         }
@@ -5312,8 +5312,8 @@ document.addEventListener('DOMContentLoaded', () => {
             errorEl.classList.remove('hidden');
             return;
         }
-        if (!reportHygieneVtadminUsername || !reportHygieneVtadminPassword) {
-            errorEl.textContent = 'Informe suas credenciais do VTAdmin antes de iniciar a higienização.';
+        if (!reportHygieneAdminpanelUsername || !reportHygieneAdminpanelPassword) {
+            errorEl.textContent = 'Informe suas credenciais do AdminPanel antes de iniciar a higienização.';
             errorEl.classList.remove('hidden');
             return;
         }
@@ -5352,8 +5352,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     filters,
                     observation,
                     selected_cards: selectedCards,
-                    vtadmin_username: reportHygieneVtadminUsername,
-                    vtadmin_password: reportHygieneVtadminPassword,
+                    adminpanel_username: reportHygieneAdminpanelUsername,
+                    adminpanel_password: reportHygieneAdminpanelPassword,
                 })
             });
             const payload = await res.json();
@@ -5371,7 +5371,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 processed: 0,
                 total: payload.total || selectedCards.length,
                 percent: 2,
-                label: 'Abrindo sessão do VTAdmin...',
+                label: 'Abrindo sessão do AdminPanel...',
                 detail: 'Preparando o navegador para iniciar a higienização.',
             };
 
@@ -5439,8 +5439,8 @@ document.addEventListener('DOMContentLoaded', () => {
         reportHygieneIsProcessing = false;
         reportHygieneLastStatus = null;
         reportHygieneFloatingRequested = false;
-        reportHygieneVtadminUsername = '';
-        reportHygieneVtadminPassword = '';
+        reportHygieneAdminpanelUsername = '';
+        reportHygieneAdminpanelPassword = '';
 
         if (reportHygieneStatusTimer) {
             clearInterval(reportHygieneStatusTimer);
@@ -5861,8 +5861,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById('report-hygiene-credentials-continue')?.addEventListener('click', async () => {
             const errorEl = document.getElementById('report-hygiene-credentials-error');
-            const usernameInput = document.getElementById('report-hygiene-vtadmin-username');
-            const passwordInput = document.getElementById('report-hygiene-vtadmin-password');
+            const usernameInput = document.getElementById('report-hygiene-adminpanel-username');
+            const passwordInput = document.getElementById('report-hygiene-adminpanel-password');
             const continueBtn = document.getElementById('report-hygiene-credentials-continue');
             const username = (usernameInput?.value || '').trim();
             const password = passwordInput?.value || '';
@@ -5871,7 +5871,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!username) {
                 if (errorEl) {
-                    errorEl.textContent = 'Informe o usuário do VTAdmin.';
+                    errorEl.textContent = 'Informe o usuário do AdminPanel.';
                     errorEl.classList.remove('hidden');
                 }
                 usernameInput?.focus();
@@ -5879,7 +5879,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (!password.trim()) {
                 if (errorEl) {
-                    errorEl.textContent = 'Informe a senha do VTAdmin.';
+                    errorEl.textContent = 'Informe a senha do AdminPanel.';
                     errorEl.classList.remove('hidden');
                 }
                 passwordInput?.focus();
@@ -5892,26 +5892,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             try {
-                const response = await fetch('/api/relatorio_higienizacao/validate_vtadmin', {
+                const response = await fetch('/api/relatorio_higienizacao/validate_adminpanel', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        vtadmin_username: username,
-                        vtadmin_password: password,
+                        adminpanel_username: username,
+                        adminpanel_password: password,
                     }),
                 });
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok || payload?.ok === false) {
-                    throw new Error(payload?.error || 'Nao foi possivel validar o acesso ao VTAdmin.');
+                    throw new Error(payload?.error || 'Nao foi possivel validar o acesso ao AdminPanel.');
                 }
 
-                reportHygieneVtadminUsername = username;
-                reportHygieneVtadminPassword = password;
+                reportHygieneAdminpanelUsername = username;
+                reportHygieneAdminpanelPassword = password;
                 closeReportHygieneCredentialsModal();
                 await openReportHygienePreview();
             } catch (err) {
                 if (errorEl) {
-                    errorEl.textContent = err.message || 'Nao foi possivel validar o acesso ao VTAdmin.';
+                    errorEl.textContent = err.message || 'Nao foi possivel validar o acesso ao AdminPanel.';
                     errorEl.classList.remove('hidden');
                 }
             } finally {
@@ -6117,9 +6117,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             const ORIGIN_BADGE = {
                 'ABT':        `<span class="badge" style="background:rgba(99,102,241,0.2);color:#818CF8;border:1px solid rgba(99,102,241,0.4);" title="Cadê meu ônibus recarga">ABT</span>`,
-                'CLIENTE':    `<span class="badge" style="background:rgba(59,130,246,0.2);color:#60A5FA;border:1px solid rgba(59,130,246,0.4);" title="Área do Cliente">CLIENTE</span>`,
-                'MERCURY_APP':`<span class="badge" style="background:rgba(236,72,153,0.2);color:#F472B6;border:1px solid rgba(236,72,153,0.4);" title="VTWeb Admin">MERCURY</span>`,
-                'ESTUDANTE':  `<span class="badge" style="background:rgba(139,92,246,0.2);color:#A78BFA;border:1px solid rgba(139,92,246,0.4);" title="Sou Estudante">ESTUDANTE</span>`,
+                'CLIENTE':    `<span class="badge" style="background:rgba(59,130,246,0.2);color:#60A5FA;border:1px solid rgba(59,130,246,0.4);" title="Portal Cliente">CLIENTE</span>`,
+                'LEGACYDB_APP':`<span class="badge" style="background:rgba(236,72,153,0.2);color:#F472B6;border:1px solid rgba(236,72,153,0.4);" title="AdminPanel Web">LEGACYDB</span>`,
+                'ESTUDANTE':  `<span class="badge" style="background:rgba(139,92,246,0.2);color:#A78BFA;border:1px solid rgba(139,92,246,0.4);" title="Portal Estudante">ESTUDANTE</span>`,
                 'WIFI':       `<span class="badge" style="background:rgba(245,158,11,0.2);color:#FBBF24;border:1px solid rgba(245,158,11,0.4);" title="Wifi Max">WIFI</span>`,
                 'WHATSAPP':   `<span class="badge" style="background:rgba(34,197,94,0.2);color:#4ADE80;border:1px solid rgba(34,197,94,0.4);" title="WhatsApp">WHATSAPP</span>`,
             };

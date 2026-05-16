@@ -122,7 +122,7 @@ def normalize_phone(raw):
     if len(digits) == 10:
         digits = digits[:2] + '9' + digits[2:]   # falta o 9 do celular
     elif len(digits) == 9:
-        digits = '92' + digits                    # sem DDD, assume Manaus
+        digits = '92' + digits                    # sem DDD, assume regional
     elif len(digits) == 8:
         digits = '92' + digits                    # fixo sem DDD
     if len(digits) == 11:
@@ -135,7 +135,7 @@ def normalize_phone(raw):
 
 
 def is_fake_email(email):
-    """Detecta placeholder @cadunico usado pela Área do Cliente."""
+    """Detecta placeholder @cadunico usado pela Portal Cliente."""
     if pd.isna(email) or not str(email).strip():
         return False
     return '@cadunico' in str(email).lower()
@@ -227,7 +227,7 @@ def process_task(socketio, data, user_sid, username, user_id):
         # ── 2. Queries com WHERE IN — busca apenas os CPFs da planilha ──────
         with engine.connect() as conn:
             _emit(socketio, user_sid, job_id, 'status',
-                  {'msg': f'Buscando {total_p} CPF(s) na Área do Cliente...', 'progress': 20})
+                  {'msg': f'Buscando {total_p} CPF(s) na Portal Cliente...', 'progress': 20})
             q_c = f"""SELECT DISTINCT REPLACE(REPLACE(cpf, '.', ''), '-', '') as cpf_limpo,
                              cellphone as celular_cliente, email as email_cliente
                       FROM sntr_cliente.customer
@@ -235,7 +235,7 @@ def process_task(socketio, data, user_sid, username, user_id):
             df_c = pd.read_sql(q_c, conn).drop_duplicates('cpf_limpo')
 
             _emit(socketio, user_sid, job_id, 'status',
-                  {'msg': 'Buscando em Sou Estudante...', 'progress': 32})
+                  {'msg': 'Buscando em Portal Estudante...', 'progress': 32})
             q_e = f"""SELECT DISTINCT cpf as cpf_limpo, celular as celular_estudante, email as email_estudante
                       FROM databridge_db.alunos
                       WHERE cpf IN ({cpfs_in})"""
@@ -268,7 +268,7 @@ def process_task(socketio, data, user_sid, username, user_id):
             df_zap = pd.read_sql(q_zap, conn).drop_duplicates('cpf_limpo')
 
             _emit(socketio, user_sid, job_id, 'status',
-                  {'msg': 'Buscando em Mercury...', 'progress': 74})
+                  {'msg': 'Buscando em LegacyDB...', 'progress': 74})
             q_cad = f"""SELECT cpf as cpf_limpo, nome as nome_mec, data_nascimento as nascido_mec,
                                email as email_mec, telefone as celular_mec,
                                endereco as endereco_mec, cartoes_json as cad_unico_json
@@ -365,7 +365,7 @@ def process_task(socketio, data, user_sid, username, user_id):
                     'telefone': str(row.get('MELHOR_Telefone') or '—'),
                     'found':    bool(found_any),
                     'bases': {
-                        'mercury':   bool(pd.notna(row.get('cad_unico_json')) and row.get('cad_unico_json')),
+                        'legacydb':   bool(pd.notna(row.get('cad_unico_json')) and row.get('cad_unico_json')),
                         'cliente':   bool(pd.notna(row.get('email_cliente'))),
                         'estudante': bool(pd.notna(row.get('email_estudante'))),
                         'abt':       bool(pd.notna(row.get('email_abt'))),
@@ -389,7 +389,7 @@ def process_task(socketio, data, user_sid, username, user_id):
                 'email':      str(row.get('MELHOR_Email') or '—'),
                 'email_fake': is_fake_email(row.get('email_cliente')),
                 'bases': {
-                    'mercury':   bool(pd.notna(row.get('cad_unico_json')) and row.get('cad_unico_json')),
+                    'legacydb':   bool(pd.notna(row.get('cad_unico_json')) and row.get('cad_unico_json')),
                     'cliente':   bool(pd.notna(row.get('email_cliente'))),
                     'estudante': bool(pd.notna(row.get('email_estudante'))),
                     'abt':       bool(pd.notna(row.get('email_abt'))),
@@ -421,7 +421,7 @@ def process_task(socketio, data, user_sid, username, user_id):
             except:
                 return jstr
 
-        df_final['Resumo_Cartoes_Mercury'] = df_final['cad_unico_json'].apply(parse_cards_to_text)
+        df_final['Resumo_Cartoes_LegacyDB'] = df_final['cad_unico_json'].apply(parse_cards_to_text)
 
         base_user_cols = [c for c in df_user.columns if c != 'cpf_key']
 
@@ -454,13 +454,13 @@ def process_task(socketio, data, user_sid, username, user_id):
             df_resumo = df_final[base_user_cols + ['MELHOR_Telefone', 'MELHOR_Email']].copy()
             df_resumo.rename(columns={'MELHOR_Telefone': 'Melhor Telefone',
                                       'MELHOR_Email':    'Melhor E-mail'}, inplace=True)
-            df_resumo['Mercury']         = df_final['cad_unico_json'].notna() & (df_final['cad_unico_json'] != '')
-            df_resumo['Área do Cliente'] = df_final['email_cliente'].notna()
-            df_resumo['Sou Estudante']   = df_final['email_estudante'].notna()
+            df_resumo['LegacyDB']         = df_final['cad_unico_json'].notna() & (df_final['cad_unico_json'] != '')
+            df_resumo['Portal Cliente'] = df_final['email_cliente'].notna()
+            df_resumo['Portal Estudante']   = df_final['email_estudante'].notna()
             df_resumo['ABT']             = df_final['email_abt'].notna()
             df_resumo['Wifi Max']        = df_final['email_wifi'].notna()
             df_resumo['WhatsApp']        = df_final['celular_whatsapp'].notna()
-            base_cols_bool = ['Mercury', 'Área do Cliente', 'Sou Estudante', 'ABT', 'Wifi Max', 'WhatsApp']
+            base_cols_bool = ['LegacyDB', 'Portal Cliente', 'Portal Estudante', 'ABT', 'Wifi Max', 'WhatsApp']
             for bc in base_cols_bool:
                 df_resumo[bc] = df_resumo[bc].map({True: 'SIM', False: ''})
             df_resumo.fillna('', inplace=True)
@@ -484,7 +484,7 @@ def process_task(socketio, data, user_sid, username, user_id):
                     val = df_resumo.iloc[ri - 1, ci]
                     ws_r.write(ri, ci, val, sim_f if val == 'SIM' else vaz_f)
 
-            # ── Aba 2: Mercury ─────────────────────────────────────────────
+            # ── Aba 2: LegacyDB ─────────────────────────────────────────────
             df_m = df_final[df_final['cad_unico_json'].notna() & (df_final['cad_unico_json'] != '')].copy()
             _write_sheet(writer, workbook, _pick(df_m, [
                 (col_cpf,                  'CPF'),
@@ -493,24 +493,24 @@ def process_task(socketio, data, user_sid, username, user_id):
                 ('email_mec',              'E-mail'),
                 ('celular_mec',            'Telefone'),
                 ('endereco_mec',           'Endereço'),
-                ('Resumo_Cartoes_Mercury', 'Cartões'),
-            ]), 'Mercury', '#9D174D')
+                ('Resumo_Cartoes_LegacyDB', 'Cartões'),
+            ]), 'LegacyDB', '#9D174D')
 
-            # ── Aba 3: Área do Cliente ──────────────────────────────────────
+            # ── Aba 3: Portal Cliente ──────────────────────────────────────
             df_c = df_final[df_final['email_cliente'].notna()].copy()
             _write_sheet(writer, workbook, _pick(df_c, [
                 (col_cpf,          'CPF'),
                 ('email_cliente',  'E-mail'),
                 ('celular_cliente','Telefone'),
-            ]), 'Área do Cliente', '#1D4ED8')
+            ]), 'Portal Cliente', '#1D4ED8')
 
-            # ── Aba 4: Sou Estudante ───────────────────────────────────────
+            # ── Aba 4: Portal Estudante ───────────────────────────────────────
             df_e = df_final[df_final['email_estudante'].notna()].copy()
             _write_sheet(writer, workbook, _pick(df_e, [
                 (col_cpf,             'CPF'),
                 ('email_estudante',   'E-mail'),
                 ('celular_estudante', 'Telefone'),
-            ]), 'Sou Estudante', '#0E7490')
+            ]), 'Portal Estudante', '#0E7490')
 
             # ── Aba 5: ABT ─────────────────────────────────────────────────
             df_a = df_final[df_final['email_abt'].notna()].copy()

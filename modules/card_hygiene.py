@@ -23,12 +23,12 @@ from modules.contact_fallbacks import delivery_fallback_query
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-VTADMIN_URL_LOGIN = os.getenv('VTADMIN_URL_LOGIN', 'https://vtadmin.manaus.prodatamobility.com.br')
-VTADMIN_USERNAME = os.getenv('VTADMIN_USERNAME', '')
-VTADMIN_PASSWORD = os.getenv('VTADMIN_PASSWORD', '')
-VTADMIN_HOTLIST_REASON_VALUE = '10'
-VTADMIN_LOGIN_PAGE_TIMEOUT = int(os.getenv('VTADMIN_LOGIN_PAGE_TIMEOUT', '30'))
-VTADMIN_LOGIN_COMPLETE_TIMEOUT = int(os.getenv('VTADMIN_LOGIN_COMPLETE_TIMEOUT', '30'))
+ADMINPANEL_URL_LOGIN = os.getenv('ADMINPANEL_URL_LOGIN', 'https://admin.example.com')
+ADMINPANEL_USERNAME = os.getenv('ADMINPANEL_USERNAME', '')
+ADMINPANEL_PASSWORD = os.getenv('ADMINPANEL_PASSWORD', '')
+ADMINPANEL_HOTLIST_REASON_VALUE = '10'
+ADMINPANEL_LOGIN_PAGE_TIMEOUT = int(os.getenv('ADMINPANEL_LOGIN_PAGE_TIMEOUT', '30'))
+ADMINPANEL_LOGIN_COMPLETE_TIMEOUT = int(os.getenv('ADMINPANEL_LOGIN_COMPLETE_TIMEOUT', '30'))
 CARD_HYGIENE_MAX_BATCH = 10000
 CARD_HYGIENE_DAILY_QUOTA = 5000
 CARD_HYGIENE_DEFAULT_BIRTHDATE = os.getenv('CARD_HYGIENE_DEFAULT_BIRTHDATE', '01/01/1990')
@@ -72,7 +72,7 @@ def ensure_card_hygiene_tables(conn):
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
             username VARCHAR(100) NOT NULL,
-            vtadmin_username VARCHAR(100) NULL,
+            adminpanel_username VARCHAR(100) NULL,
             observation TEXT NULL,
             filter_json LONGTEXT NULL,
             clients_json LONGTEXT NOT NULL,
@@ -132,7 +132,7 @@ def ensure_card_hygiene_tables(conn):
         )
     """))
     for alter_sql in (
-        "ALTER TABLE databridge_web.databridge_card_hygiene_logs ADD COLUMN vtadmin_username VARCHAR(100) NULL AFTER username",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_logs ADD COLUMN adminpanel_username VARCHAR(100) NULL AFTER username",
         "ALTER TABLE databridge_web.databridge_card_hygiene_logs ADD COLUMN filter_json LONGTEXT NULL AFTER observation",
         "ALTER TABLE databridge_web.databridge_card_hygiene_jobs ADD COLUMN filter_json LONGTEXT NULL AFTER observation",
         "ALTER TABLE databridge_web.databridge_card_hygiene_jobs ADD COLUMN last_heartbeat_at DATETIME DEFAULT CURRENT_TIMESTAMP AFTER started_at",
@@ -272,7 +272,7 @@ def mark_stale_hygiene_jobs(conn):
                 END,
                 progress_detail = CASE
                     WHEN cancel_requested = 1 THEN 'Cancelamento consolidado após expiração do processo em segundo plano.'
-                    ELSE 'O processo ficou sem atualização por muito tempo e foi encerrado automaticamente. Verifique o VTAdmin antes de reprocessar os cartões restantes.'
+                    ELSE 'O processo ficou sem atualização por muito tempo e foi encerrado automaticamente. Verifique o AdminPanel antes de reprocessar os cartões restantes.'
                 END,
                 result_json = JSON_OBJECT(
                     'error', 'Job expirado automaticamente por ausência de worker ativo.',
@@ -446,7 +446,7 @@ def get_card_hygiene_progress(cancel_token: Optional[str]) -> Optional[Dict[str,
 
 
 # ---------------------------------------------------------------------------
-# VTAdmin automation helpers (unchanged from original)
+# AdminPanel automation helpers (unchanged from original)
 # ---------------------------------------------------------------------------
 
 def get_card_hygiene_exclusion_sql(alias='f'):
@@ -461,19 +461,19 @@ def get_card_hygiene_exclusion_sql(alias='f'):
     )
 
 
-def persist_card_hygiene_log(conn, user_id: int, username: str, vtadmin_username: str,
+def persist_card_hygiene_log(conn, user_id: int, username: str, adminpanel_username: str,
                               observation: str, success_items: List[Dict[str, Any]],
                               filters: Optional[Dict[str, Any]] = None):
     ensure_card_hygiene_tables(conn)
     conn.execute(text("""
         INSERT INTO databridge_web.databridge_card_hygiene_logs
-            (user_id, username, vtadmin_username, observation, filter_json, clients_json, total_success)
+            (user_id, username, adminpanel_username, observation, filter_json, clients_json, total_success)
         VALUES
-            (:user_id, :username, :vtadmin_username, :observation, :filter_json, :clients_json, :total_success)
+            (:user_id, :username, :adminpanel_username, :observation, :filter_json, :clients_json, :total_success)
     """), {
         'user_id': user_id,
         'username': username,
-        'vtadmin_username': (vtadmin_username or '').strip() or None,
+        'adminpanel_username': (adminpanel_username or '').strip() or None,
         'observation': observation,
         'filter_json': json.dumps(filters or {}, ensure_ascii=False),
         'clients_json': json.dumps(success_items, ensure_ascii=False),
@@ -516,7 +516,7 @@ def persist_card_hygiene_log(conn, user_id: int, username: str, vtadmin_username
     return log_id
 
 
-def detect_vtadmin_unavailable(driver):
+def detect_adminpanel_unavailable(driver):
     try:
         current_url = (driver.current_url or '').lower()
     except Exception:
@@ -537,12 +537,12 @@ def detect_vtadmin_unavailable(driver):
         '404',
     ]
     if any(marker in page_source for marker in unavailable_markers) or 'wfm_default.aspx' in current_url and 'not found' in page_source:
-        raise RuntimeError('VTAdmin fora do ar no momento: a página retornou erro 404 (Not Found).')
-    if 'not found' in title and 'vtadmin' in current_url:
-        raise RuntimeError('VTAdmin fora do ar no momento: a página inicial retornou Not Found.')
+        raise RuntimeError('AdminPanel fora do ar no momento: a página retornou erro 404 (Not Found).')
+    if 'not found' in title and 'adminpanel' in current_url:
+        raise RuntimeError('AdminPanel fora do ar no momento: a página inicial retornou Not Found.')
 
 
-def create_vtadmin_driver():
+def create_adminpanel_driver():
     options = webdriver.ChromeOptions()
     options.page_load_strategy = 'eager'
     options.add_argument("--headless=new")
@@ -557,7 +557,7 @@ def create_vtadmin_driver():
     return driver
 
 
-def vtadmin_switch_main_iframe(driver):
+def adminpanel_switch_main_iframe(driver):
     driver.switch_to.default_content()
     frame_locators = [
         (By.ID, "FRAME"),
@@ -577,7 +577,7 @@ def vtadmin_switch_main_iframe(driver):
     raise last_error
 
 
-def vtadmin_is_logged_in(driver) -> bool:
+def adminpanel_is_logged_in(driver) -> bool:
     success_locators = [
         (By.XPATH, "//li[@id='parent_uca']/a"),
         (By.XPATH, "//li/a[contains(text(),'Lista')]"),
@@ -598,7 +598,7 @@ def vtadmin_is_logged_in(driver) -> bool:
             pass
 
     try:
-        vtadmin_switch_main_iframe(driver)
+        adminpanel_switch_main_iframe(driver)
         for locator in ((By.ID, "txtCode"), (By.ID, "txtDoc"), (By.ID, "gvCards"), (By.ID, "dgUser")):
             try:
                 elems = driver.find_elements(*locator)
@@ -617,7 +617,7 @@ def vtadmin_is_logged_in(driver) -> bool:
     return False
 
 
-def vtadmin_can_open_uca(driver) -> bool:
+def adminpanel_can_open_uca(driver) -> bool:
     try:
         driver.switch_to.default_content()
     except Exception:
@@ -633,7 +633,7 @@ def vtadmin_can_open_uca(driver) -> bool:
         return False
 
 
-def vtadmin_capture_login_state(driver) -> str:
+def adminpanel_capture_login_state(driver) -> str:
     try:
         title = (driver.title or '').strip()
     except Exception:
@@ -660,13 +660,13 @@ def vtadmin_capture_login_state(driver) -> str:
     return f"title='{title}' url='{current_url}' visible_ids={visible_ids} iframes={iframe_count}"
 
 
-def validate_vtadmin_credentials(vtadmin_username: str, vtadmin_password: str) -> tuple[bool, str]:
-    username = (vtadmin_username or '').strip()
-    password = vtadmin_password if vtadmin_password is not None else ''
+def validate_adminpanel_credentials(adminpanel_username: str, adminpanel_password: str) -> tuple[bool, str]:
+    username = (adminpanel_username or '').strip()
+    password = adminpanel_password if adminpanel_password is not None else ''
     if not username:
-        return False, 'Informe o usuario do VTAdmin.'
+        return False, 'Informe o usuario do AdminPanel.'
     if not str(password).strip():
-        return False, 'Informe a senha do VTAdmin.'
+        return False, 'Informe a senha do AdminPanel.'
 
     try:
         session = requests.Session()
@@ -686,11 +686,11 @@ def validate_vtadmin_credentials(vtadmin_username: str, vtadmin_password: str) -
                 ret.append(ch)
             return ''.join(ret)
 
-        login_page = session.get(VTADMIN_URL_LOGIN, timeout=(3, 5))
+        login_page = session.get(ADMINPANEL_URL_LOGIN, timeout=(3, 5))
         if login_page.status_code >= 500:
-            return False, 'VTAdmin indisponível no momento.'
+            return False, 'AdminPanel indisponível no momento.'
 
-        async_url = urljoin(VTADMIN_URL_LOGIN.rstrip('/') + '/', 'Login_Async.aspx')
+        async_url = urljoin(ADMINPANEL_URL_LOGIN.rstrip('/') + '/', 'Login_Async.aspx')
         response = session.get(
             async_url,
             params={
@@ -704,20 +704,20 @@ def validate_vtadmin_credentials(vtadmin_username: str, vtadmin_password: str) -
         if 'ok:sessionactive' in payload:
             return True, 'Credenciais validadas com sucesso.'
         if 'wrong:' in payload:
-            return False, 'Login ou senha do VTAdmin incorretos.'
+            return False, 'Login ou senha do AdminPanel incorretos.'
 
-        default_page = session.get(urljoin(VTADMIN_URL_LOGIN.rstrip('/') + '/', 'wfm_default.aspx'), timeout=(3, 5))
+        default_page = session.get(urljoin(ADMINPANEL_URL_LOGIN.rstrip('/') + '/', 'wfm_default.aspx'), timeout=(3, 5))
         default_payload = (default_page.text or '').lower()
         if 'parent_uca' in default_payload or 'wfm_default.aspx' in (default_page.url or '').lower():
             return True, 'Credenciais validadas com sucesso.'
         if 'txtlogin' in default_payload and 'txtsenha' in default_payload:
-            return False, 'Login ou senha do VTAdmin incorretos.'
-        return False, 'Nao foi possivel validar o acesso ao VTAdmin agora. Tente novamente.'
+            return False, 'Login ou senha do AdminPanel incorretos.'
+        return False, 'Nao foi possivel validar o acesso ao AdminPanel agora. Tente novamente.'
     except Exception as exc:
         message = str(exc).strip()
-        if 'VTAdmin fora do ar' in message:
+        if 'AdminPanel fora do ar' in message:
             return False, message
-        return False, f'Falha ao validar credenciais no VTAdmin: {message or exc.__class__.__name__}'
+        return False, f'Falha ao validar credenciais no AdminPanel: {message or exc.__class__.__name__}'
 
 
 def normalize_phone_parts(raw_phone: Any) -> Optional[Dict[str, str]]:
@@ -814,7 +814,7 @@ def lookup_phone_for_hygiene(cpf: str) -> Optional[Dict[str, str]]:
             """),
         ),
         (
-            'MERCURY',
+            'LEGACYDB',
             text("""
                 SELECT telefone AS phone
                 FROM sntr_interligar.SALES_CAD_UNICO_JSON
@@ -842,7 +842,7 @@ def lookup_phone_for_hygiene(cpf: str) -> Optional[Dict[str, str]]:
     return None
 
 
-def normalize_birthdate_for_vtadmin(raw_value: Any) -> Optional[str]:
+def normalize_birthdate_for_adminpanel(raw_value: Any) -> Optional[str]:
     if raw_value is None:
         return None
 
@@ -939,7 +939,7 @@ def lookup_birthdate_for_hygiene(cpf: str) -> Optional[Dict[str, str]]:
                 card_hygiene_log(f"Falha ao consultar data de nascimento na base {source} para CPF {cpf_digits}: {exc}")
                 continue
 
-            formatted_birthdate = normalize_birthdate_for_vtadmin(raw_birthdate)
+            formatted_birthdate = normalize_birthdate_for_adminpanel(raw_birthdate)
             if formatted_birthdate:
                 found_birthdates.setdefault(formatted_birthdate, []).append(source)
 
@@ -990,20 +990,20 @@ def lookup_birthdate_for_hygiene(cpf: str) -> Optional[Dict[str, str]]:
     }
 
 
-def vtadmin_login(driver, job_id=None, vtadmin_username=None, vtadmin_password=None):
-    login_username = (vtadmin_username or VTADMIN_USERNAME or '').strip()
-    login_password = vtadmin_password if vtadmin_password is not None else VTADMIN_PASSWORD
+def adminpanel_login(driver, job_id=None, adminpanel_username=None, adminpanel_password=None):
+    login_username = (adminpanel_username or ADMINPANEL_USERNAME or '').strip()
+    login_password = adminpanel_password if adminpanel_password is not None else ADMINPANEL_PASSWORD
     if not login_username or not login_password:
-        raise RuntimeError('Credenciais do VTAdmin não informadas.')
+        raise RuntimeError('Credenciais do AdminPanel não informadas.')
 
     for attempt in range(3):
         try:
-            card_hygiene_log(f"Iniciando login no VTAdmin (tentativa {attempt + 1}/3)")
-            _check_cancelled(job_id, 'abrindo login vtadmin')
-            driver.get(VTADMIN_URL_LOGIN)
-            detect_vtadmin_unavailable(driver)
+            card_hygiene_log(f"Iniciando login no AdminPanel (tentativa {attempt + 1}/3)")
+            _check_cancelled(job_id, 'abrindo login adminpanel')
+            driver.get(ADMINPANEL_URL_LOGIN)
+            detect_adminpanel_unavailable(driver)
             
-            end_time = time.time() + VTADMIN_LOGIN_PAGE_TIMEOUT
+            end_time = time.time() + ADMINPANEL_LOGIN_PAGE_TIMEOUT
             txt_login = None
             while time.time() < end_time:
                 _check_cancelled(job_id, 'aguardando tela de login')
@@ -1019,23 +1019,23 @@ def vtadmin_login(driver, job_id=None, vtadmin_username=None, vtadmin_password=N
             txt_login.send_keys(login_username)
             driver.find_element(By.ID, "txtSenha").send_keys(login_password)
             driver.find_element(By.ID, "loginbutton").click()
-            detect_vtadmin_unavailable(driver)
+            detect_adminpanel_unavailable(driver)
             
-            end_time = time.time() + VTADMIN_LOGIN_COMPLETE_TIMEOUT
+            end_time = time.time() + ADMINPANEL_LOGIN_COMPLETE_TIMEOUT
             while time.time() < end_time:
                 _check_cancelled(job_id, 'aguardando conclusão do login')
-                detect_vtadmin_unavailable(driver)
-                if vtadmin_is_logged_in(driver):
-                    card_hygiene_log("Login no VTAdmin confirmado com sucesso")
+                detect_adminpanel_unavailable(driver)
+                if adminpanel_is_logged_in(driver):
+                    card_hygiene_log("Login no AdminPanel confirmado com sucesso")
                     return
                 time.sleep(0.5)
                     
-            raise RuntimeError(f"Timeout esperando conclusao do login. Estado final: {vtadmin_capture_login_state(driver)}")
+            raise RuntimeError(f"Timeout esperando conclusao do login. Estado final: {adminpanel_capture_login_state(driver)}")
         except Exception as exc:
             card_hygiene_log(f"Falha na tentativa de login {attempt + 1}/3: {exc}")
             if isinstance(exc, CardHygieneCancelled):
                 raise
-            if isinstance(exc, RuntimeError) and 'VTAdmin fora do ar' in str(exc):
+            if isinstance(exc, RuntimeError) and 'AdminPanel fora do ar' in str(exc):
                 raise
             if attempt >= 2:
                 raise
@@ -1043,7 +1043,7 @@ def vtadmin_login(driver, job_id=None, vtadmin_username=None, vtadmin_password=N
 
 
 
-def vtadmin_click_menu(driver):
+def adminpanel_click_menu(driver):
     driver.switch_to.default_content()
     card_hygiene_log('Acessando registro selecionado')
     WebDriverWait(driver, 20).until(
@@ -1054,8 +1054,8 @@ def vtadmin_click_menu(driver):
     ).click()
 
 
-def vtadmin_run_search(driver, search_value: str, search_field_id: str):
-    vtadmin_switch_main_iframe(driver)
+def adminpanel_run_search(driver, search_value: str, search_field_id: str):
+    adminpanel_switch_main_iframe(driver)
     field = WebDriverWait(driver, 20).until(
         EC.presence_of_element_located((By.ID, search_field_id))
     )
@@ -1064,7 +1064,7 @@ def vtadmin_run_search(driver, search_value: str, search_field_id: str):
     driver.find_element(By.NAME, "btnEldery").click()
 
 
-def vtadmin_find_card_link(driver, card_number: str, timeout_seconds: int = 12):
+def adminpanel_find_card_link(driver, card_number: str, timeout_seconds: int = 12):
     card_locators = [
         (By.XPATH, f"//a[@id='gvCards__ctl3_lnkCard' and normalize-space()='{card_number}']"),
         (By.XPATH, f"//a[contains(@id,'lnkCard') and normalize-space()='{card_number}']"),
@@ -1084,8 +1084,8 @@ def vtadmin_find_card_link(driver, card_number: str, timeout_seconds: int = 12):
     raise RuntimeError(f"Nao foi possivel localizar o cartao {card_number} na grade Cartoes do Usuario.") from last_error
 
 
-def vtadmin_get_card_row_info(driver, card_number: str, timeout_seconds: int = 10) -> Dict[str, Any]:
-    vtadmin_switch_main_iframe(driver)
+def adminpanel_get_card_row_info(driver, card_number: str, timeout_seconds: int = 10) -> Dict[str, Any]:
+    adminpanel_switch_main_iframe(driver)
     row_locators = [
         (By.XPATH, f"//table[@id='gvCards']//tr[td[1]//a[normalize-space()='{card_number}']]"),
         (By.XPATH, f"//table[@id='gvCards']//tr[td[1][normalize-space()='{card_number}']]"),
@@ -1119,11 +1119,11 @@ def vtadmin_get_card_row_info(driver, card_number: str, timeout_seconds: int = 1
     }
 
 
-def vtadmin_try_open_card(driver, search_value: str, card_number: str, search_field_id: str = 'txtCode'):
+def adminpanel_try_open_card(driver, search_value: str, card_number: str, search_field_id: str = 'txtCode'):
     card_hygiene_log(
-        f"Buscando cadastro no VTAdmin com chave '{search_value}' no campo '{search_field_id}' para o cartao {card_number}"
+        f"Buscando cadastro no AdminPanel com chave '{search_value}' no campo '{search_field_id}' para o cartao {card_number}"
     )
-    vtadmin_run_search(driver, search_value, search_field_id)
+    adminpanel_run_search(driver, search_value, search_field_id)
 
     parent_xpaths = [
         f"//a[normalize-space()='{search_value}' and not(contains(@id,'lnkCard'))]",
@@ -1135,7 +1135,7 @@ def vtadmin_try_open_card(driver, search_value: str, card_number: str, search_fi
     last_error = None
     for parent_xpath in parent_xpaths:
         try:
-            vtadmin_switch_main_iframe(driver)
+            adminpanel_switch_main_iframe(driver)
             candidates = driver.find_elements(By.XPATH, parent_xpath)
         except Exception as exc:
             last_error = exc
@@ -1146,8 +1146,8 @@ def vtadmin_try_open_card(driver, search_value: str, card_number: str, search_fi
 
         for index in range(len(candidates)):
             try:
-                vtadmin_run_search(driver, search_value, search_field_id)
-                vtadmin_switch_main_iframe(driver)
+                adminpanel_run_search(driver, search_value, search_field_id)
+                adminpanel_switch_main_iframe(driver)
                 refreshed_candidates = driver.find_elements(By.XPATH, parent_xpath)
                 if index >= len(refreshed_candidates):
                     continue
@@ -1160,9 +1160,9 @@ def vtadmin_try_open_card(driver, search_value: str, card_number: str, search_fi
                     f"Resultado principal aberto com a chave '{search_value}' (candidato {index + 1} de {len(refreshed_candidates)})"
                 )
 
-                link = vtadmin_find_card_link(driver, card_number, timeout_seconds=4)
+                link = adminpanel_find_card_link(driver, card_number, timeout_seconds=4)
                 driver.execute_script("arguments[0].scrollIntoView({block:'center'});", link)
-                row_info = vtadmin_get_card_row_info(driver, card_number, timeout_seconds=4)
+                row_info = adminpanel_get_card_row_info(driver, card_number, timeout_seconds=4)
                 status_text = (row_info.get('status') or '').strip()
                 if status_text:
                     card_hygiene_log(f"Cartao {card_number} validado na grade Cartoes do Usuario com status '{status_text}'")
@@ -1187,7 +1187,7 @@ def vtadmin_try_open_card(driver, search_value: str, card_number: str, search_fi
         available_text = []
         parent_text = []
 
-    detail = f'Nao foi possivel localizar o cartao {card_number} no VTAdmin.'
+    detail = f'Nao foi possivel localizar o cartao {card_number} no AdminPanel.'
     if not entered_parent and parent_text:
         detail += f" Resultado principal visivel: {', '.join(parent_text[:5])}"
     if available_text:
@@ -1195,8 +1195,8 @@ def vtadmin_try_open_card(driver, search_value: str, card_number: str, search_fi
     raise RuntimeError(detail) from last_error
 
 
-def vtadmin_open_card(driver, card_number: str, cpf: str = ''):
-    vtadmin_click_menu(driver)
+def adminpanel_open_card(driver, card_number: str, cpf: str = ''):
+    adminpanel_click_menu(driver)
     search_candidates = []
     if cpf:
         cpf_digits = ''.join(ch for ch in str(cpf) if ch.isdigit())
@@ -1211,7 +1211,7 @@ def vtadmin_open_card(driver, card_number: str, cpf: str = ''):
     for search_value, field_id in search_candidates:
         try:
             attempted.append(f"{search_value} [{field_id}]")
-            return vtadmin_try_open_card(driver, search_value, card_number, field_id)
+            return adminpanel_try_open_card(driver, search_value, card_number, field_id)
         except Exception as exc:
             last_error = exc
             card_hygiene_log(
@@ -1219,12 +1219,12 @@ def vtadmin_open_card(driver, card_number: str, cpf: str = ''):
             )
     tried = ', '.join(attempted) if attempted else 'nenhuma chave'
     raise RuntimeError(
-        f'Nao foi possivel localizar o cartao {card_number} no VTAdmin. '
+        f'Nao foi possivel localizar o cartao {card_number} no AdminPanel. '
         f'Chaves tentadas: {tried}. Ultimo erro: {last_error}'
     ) from last_error
 
 
-def normalize_vtadmin_card_status(status_text: str) -> str:
+def normalize_adminpanel_card_status(status_text: str) -> str:
     text_value = (status_text or '').strip().upper()
     return (
         text_value
@@ -1243,8 +1243,8 @@ def normalize_vtadmin_card_status(status_text: str) -> str:
     )
 
 
-def vtadmin_get_hotlist_action(driver, card_number: str) -> Optional[str]:
-    vtadmin_switch_main_iframe(driver)
+def adminpanel_get_hotlist_action(driver, card_number: str) -> Optional[str]:
+    adminpanel_switch_main_iframe(driver)
     action_locators = [
         (By.XPATH, f"//tr[td[normalize-space()='{card_number}']]//a[normalize-space()='Enviar']"),
         (By.XPATH, f"//tr[td[normalize-space()='{card_number}']]//a[normalize-space()='Retirar']"),
@@ -1269,8 +1269,8 @@ def vtadmin_get_hotlist_action(driver, card_number: str) -> Optional[str]:
     return None
 
 
-def vtadmin_find_hotlist_send_link_for_card(driver, card_number: str):
-    vtadmin_switch_main_iframe(driver)
+def adminpanel_find_hotlist_send_link_for_card(driver, card_number: str):
+    adminpanel_switch_main_iframe(driver)
     row_xpath = (
         f"//table[@id='gvCards']//tr[td[1]//a[normalize-space()='{card_number}'] "
         f"or td[1][normalize-space()='{card_number}']]"
@@ -1318,7 +1318,7 @@ def vtadmin_find_hotlist_send_link_for_card(driver, card_number: str):
     ) from last_error
 
 
-def vtadmin_find_ok_and_click(driver):
+def adminpanel_find_ok_and_click(driver):
     driver.switch_to.default_content()
     direct_ok_paths = [
         (By.XPATH, "//input[@value='OK']"),
@@ -1409,14 +1409,14 @@ def _open_phone_tab(driver):
     raise last_error
 
 
-def vtadmin_ensure_phone_for_observation(driver, cpf: str, job_id: Optional[str] = None) -> Dict[str, Any]:
+def adminpanel_ensure_phone_for_observation(driver, cpf: str, job_id: Optional[str] = None) -> Dict[str, Any]:
     cpf_digits = ''.join(ch for ch in str(cpf or '') if ch.isdigit())
     card_hygiene_log(f"Verificando telefones antes de salvar a observacao do CPF {cpf_digits or 'sem_cpf'}")
     _check_cancelled(job_id, f'{cpf_digits or "cadastro"} / verificar telefone antes da observacao')
     stage = 'entrar_frame_principal_telefones'
     try:
         driver.switch_to.default_content()
-        vtadmin_switch_main_iframe(driver)
+        adminpanel_switch_main_iframe(driver)
         stage = 'localizar_e_clicar_aba_telefones'
         phone_tab = WebDriverWait(driver, 10).until(
             EC.presence_of_element_located((By.XPATH, '//*[@id="tdmenu_2"]/a'))
@@ -1426,7 +1426,7 @@ def vtadmin_ensure_phone_for_observation(driver, cpf: str, job_id: Optional[str]
 
         stage = 'acessar_menuframe_telefones'
         driver.switch_to.default_content()
-        vtadmin_switch_main_iframe(driver)
+        adminpanel_switch_main_iframe(driver)
         WebDriverWait(driver, 10).until(
             EC.frame_to_be_available_and_switch_to_it((By.XPATH, '//*[@id="menuframe"]'))
         )
@@ -1447,8 +1447,8 @@ def vtadmin_ensure_phone_for_observation(driver, cpf: str, job_id: Optional[str]
                 phone_type = (existing_phone_rows[0].find_elements(By.TAG_NAME, 'td')[0].text or '').strip().upper()
             except Exception:
                 phone_type = 'EXISTENTE'
-            card_hygiene_log(f"Cadastro ja possui telefone {phone_type or 'EXISTENTE'} no VTAdmin; nenhuma insercao necessaria")
-            return {'inserted': False, 'source': 'VTADMIN'}
+            card_hygiene_log(f"Cadastro ja possui telefone {phone_type or 'EXISTENTE'} no AdminPanel; nenhuma insercao necessaria")
+            return {'inserted': False, 'source': 'ADMINPANEL'}
 
         has_inputs = bool(driver.find_elements(By.ID, 'txtArea')) and bool(driver.find_elements(By.ID, 'txtPhone')) and bool(driver.find_elements(By.ID, 'btnInsert'))
         if not has_inputs:
@@ -1524,12 +1524,12 @@ def vtadmin_ensure_phone_for_observation(driver, cpf: str, job_id: Optional[str]
 
         stage = 'salvar_cadastro_com_telefone'
         driver.switch_to.default_content()
-        vtadmin_switch_main_iframe(driver)
+        adminpanel_switch_main_iframe(driver)
         update_btn = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.ID, 'btnUpdate'))
         )
         driver.execute_script("arguments[0].click();", update_btn)
-        vtadmin_accept_duplicate_document_alert(driver, timeout=4)
+        adminpanel_accept_duplicate_document_alert(driver, timeout=4)
         driver.switch_to.default_content()
         success_ok_locator = (By.XPATH, '/html/body/form/div/table/tbody/tr[3]/td/input')
         try:
@@ -1538,8 +1538,8 @@ def vtadmin_ensure_phone_for_observation(driver, cpf: str, job_id: Optional[str]
             )
             driver.execute_script("arguments[0].click();", success_ok)
         except Exception:
-            vtadmin_find_ok_and_click(driver)
-        vtadmin_switch_main_iframe(driver)
+            adminpanel_find_ok_and_click(driver)
+        adminpanel_switch_main_iframe(driver)
 
         return {
             'inserted': True,
@@ -1551,12 +1551,12 @@ def vtadmin_ensure_phone_for_observation(driver, cpf: str, job_id: Optional[str]
         raise RuntimeError(f"Falha ao garantir telefone na etapa '{stage}': {exc}") from exc
 
 
-def vtadmin_set_observation(driver, observation_text: str):
-    card_hygiene_log("Localizando campo de observacao no VTAdmin")
+def adminpanel_set_observation(driver, observation_text: str):
+    card_hygiene_log("Localizando campo de observacao no AdminPanel")
     field = None
     last_error = None
     search_attempts = [
-        ('iframe', lambda: vtadmin_switch_main_iframe(driver)),
+        ('iframe', lambda: adminpanel_switch_main_iframe(driver)),
         ('pagina_principal', lambda: driver.switch_to.default_content()),
     ]
     locators = [
@@ -1620,13 +1620,13 @@ def vtadmin_set_observation(driver, observation_text: str):
         field,
         full_text
     )
-    card_hygiene_log("Observacao preenchida no cadastro do VTAdmin")
+    card_hygiene_log("Observacao preenchida no cadastro do AdminPanel")
 
 
-def vtadmin_ensure_birthdate_for_update(driver, cpf: str, job_id: Optional[str] = None) -> Dict[str, Any]:
+def adminpanel_ensure_birthdate_for_update(driver, cpf: str, job_id: Optional[str] = None) -> Dict[str, Any]:
     cpf_digits = ''.join(ch for ch in str(cpf or '') if ch.isdigit())
     _check_cancelled(job_id, f'{cpf_digits or "cadastro"} / verificar data de nascimento')
-    vtadmin_switch_main_iframe(driver)
+    adminpanel_switch_main_iframe(driver)
 
     field_locators = [
         (By.ID, 'txtDataNascimento'),
@@ -1657,15 +1657,15 @@ def vtadmin_ensure_birthdate_for_update(driver, cpf: str, job_id: Optional[str] 
             break
 
     if birthdate_field is None:
-        card_hygiene_log("Campo de data de nascimento nao encontrado no VTAdmin; seguindo sem ajuste automatico")
+        card_hygiene_log("Campo de data de nascimento nao encontrado no AdminPanel; seguindo sem ajuste automatico")
         return {'filled': False, 'source': None, 'birthdate': None, 'field_found': False, 'note': None}
 
-    current_value = normalize_birthdate_for_vtadmin(birthdate_field.get_attribute('value') or '')
+    current_value = normalize_birthdate_for_adminpanel(birthdate_field.get_attribute('value') or '')
     if current_value:
-        card_hygiene_log(f"Data de nascimento ja preenchida no VTAdmin ({current_value})")
+        card_hygiene_log(f"Data de nascimento ja preenchida no AdminPanel ({current_value})")
         return {
             'filled': False,
-            'source': 'VTADMIN',
+            'source': 'ADMINPANEL',
             'birthdate': current_value,
             'field_found': True,
             'note': None,
@@ -1691,7 +1691,7 @@ def vtadmin_ensure_birthdate_for_update(driver, cpf: str, job_id: Optional[str] 
         driver.execute_script("if (typeof FormatDate === 'function') { FormatDate(arguments[0]); }", birthdate_field)
     except Exception:
         pass
-    card_hygiene_log(f"Data de nascimento ajustada no VTAdmin com origem {birthdate_source}: {birthdate_value}")
+    card_hygiene_log(f"Data de nascimento ajustada no AdminPanel com origem {birthdate_source}: {birthdate_value}")
     return {
         'filled': True,
         'source': birthdate_source,
@@ -1703,11 +1703,11 @@ def vtadmin_ensure_birthdate_for_update(driver, cpf: str, job_id: Optional[str] 
     }
 
 
-def vtadmin_collect_validation_messages(driver) -> List[str]:
+def adminpanel_collect_validation_messages(driver) -> List[str]:
     messages = []
     contexts = [
         ('default', lambda: driver.switch_to.default_content()),
-        ('iframe', lambda: vtadmin_switch_main_iframe(driver)),
+        ('iframe', lambda: adminpanel_switch_main_iframe(driver)),
     ]
     locators = [
         (By.ID, 'vs'),
@@ -1747,12 +1747,12 @@ def vtadmin_collect_validation_messages(driver) -> List[str]:
     return messages
 
 
-def vtadmin_collect_validation_messages_strict(driver) -> List[str]:
+def adminpanel_collect_validation_messages_strict(driver) -> List[str]:
     messages: List[str] = []
     error_keywords = ('obrigat', 'formato errado', 'invalido', 'inválido', 'erro')
     contexts = [
         lambda: driver.switch_to.default_content(),
-        lambda: vtadmin_switch_main_iframe(driver),
+        lambda: adminpanel_switch_main_iframe(driver),
     ]
     locators = [
         (By.ID, 'vs'),
@@ -1803,7 +1803,7 @@ def vtadmin_collect_validation_messages_strict(driver) -> List[str]:
     return messages
 
 
-def vtadmin_accept_duplicate_document_alert(driver, timeout: int = 3) -> bool:
+def adminpanel_accept_duplicate_document_alert(driver, timeout: int = 3) -> bool:
     try:
         alert = WebDriverWait(driver, timeout).until(EC.alert_is_present())
     except TimeoutException:
@@ -1830,7 +1830,7 @@ def vtadmin_accept_duplicate_document_alert(driver, timeout: int = 3) -> bool:
     return True
 
 
-def vtadmin_send_to_hotlist(driver, card_number: str, job_id: Optional[str] = None):
+def adminpanel_send_to_hotlist(driver, card_number: str, job_id: Optional[str] = None):
     card_hygiene_log(f"Abrindo hotlist do cartao {card_number}")
     update_job_progress(
         job_id,
@@ -1840,8 +1840,8 @@ def vtadmin_send_to_hotlist(driver, card_number: str, job_id: Optional[str] = No
     substep = 'clicar_enviar'
     try:
         _check_cancelled(job_id, f'{card_number} / abrir hotlist')
-        vtadmin_switch_main_iframe(driver)
-        send_link, status_text = vtadmin_find_hotlist_send_link_for_card(driver, card_number)
+        adminpanel_switch_main_iframe(driver)
+        send_link, status_text = adminpanel_find_hotlist_send_link_for_card(driver, card_number)
         driver.execute_script("arguments[0].scrollIntoView({block:'center'});", send_link)
         driver.execute_script("arguments[0].click();", send_link)
         card_hygiene_log(
@@ -1851,19 +1851,19 @@ def vtadmin_send_to_hotlist(driver, card_number: str, job_id: Optional[str] = No
 
         substep = 'selecionar_motivo'
         _check_cancelled(job_id, f'{card_number} / selecionar motivo')
-        vtadmin_switch_main_iframe(driver)
+        adminpanel_switch_main_iframe(driver)
         motivo = WebDriverWait(driver, 20).until(
             EC.presence_of_element_located((By.ID, "cboMotivo"))
         )
-        Select(motivo).select_by_value(VTADMIN_HOTLIST_REASON_VALUE)
+        Select(motivo).select_by_value(ADMINPANEL_HOTLIST_REASON_VALUE)
         WebDriverWait(driver, 10).until(
-            lambda d: d.find_element(By.ID, "cboMotivo").get_attribute("value") == VTADMIN_HOTLIST_REASON_VALUE
+            lambda d: d.find_element(By.ID, "cboMotivo").get_attribute("value") == ADMINPANEL_HOTLIST_REASON_VALUE
         )
         card_hygiene_log("Motivo HIGIENIZACAO DE CADASTRO selecionado")
         update_job_progress(
             job_id,
             progress_label='Selecionando motivo da restrição',
-            progress_detail='Motivo HIGIENIZAÇÃO DE CADASTRO selecionado no VTAdmin.',
+            progress_detail='Motivo HIGIENIZAÇÃO DE CADASTRO selecionado no AdminPanel.',
         )
 
         substep = 'confirmar_hotlist'
@@ -1880,7 +1880,7 @@ def vtadmin_send_to_hotlist(driver, card_number: str, job_id: Optional[str] = No
 
         substep = 'ok_hotlist'
         _check_cancelled(job_id, f'{card_number} / confirmar alerta da hotlist')
-        vtadmin_find_ok_and_click(driver)
+        adminpanel_find_ok_and_click(driver)
         card_hygiene_log("Alerta de inclusao na lista negra confirmado")
         update_job_progress(
             job_id,
@@ -1891,12 +1891,12 @@ def vtadmin_send_to_hotlist(driver, card_number: str, job_id: Optional[str] = No
         raise RuntimeError(f"Falha ao {substep} para o cartao {card_number}: {exc}") from exc
 
 
-def vtadmin_click_update(driver, job_id: Optional[str] = None):
+def adminpanel_click_update(driver, job_id: Optional[str] = None):
     btn = None
     for _ in range(3):
         try:
             _check_cancelled(job_id, 'localizar botão Atualizar')
-            vtadmin_switch_main_iframe(driver)
+            adminpanel_switch_main_iframe(driver)
             btn = WebDriverWait(driver, 8).until(
                 EC.element_to_be_clickable((By.ID, "btnUpdate"))
             )
@@ -1916,13 +1916,13 @@ def vtadmin_click_update(driver, job_id: Optional[str] = None):
         progress_detail='Executando o botão Atualizar e aguardando a confirmação final.',
     )
     btn.click()
-    vtadmin_accept_duplicate_document_alert(driver, timeout=4)
-    validation_messages = vtadmin_collect_validation_messages_strict(driver)
+    adminpanel_accept_duplicate_document_alert(driver, timeout=4)
+    validation_messages = adminpanel_collect_validation_messages_strict(driver)
     if validation_messages:
-        raise RuntimeError(f"Erro cadastral no VTAdmin: {' | '.join(validation_messages[:3])}")
+        raise RuntimeError(f"Erro cadastral no AdminPanel: {' | '.join(validation_messages[:3])}")
     _check_cancelled(job_id, 'confirmar alerta do Atualizar')
-    vtadmin_find_ok_and_click(driver)
-    card_hygiene_log("Cadastro atualizado no VTAdmin")
+    adminpanel_find_ok_and_click(driver)
+    card_hygiene_log("Cadastro atualizado no AdminPanel")
 
 
 def build_card_result_note(phone_result: Optional[Dict[str, Any]] = None,
@@ -1960,7 +1960,7 @@ def _compute_percent(item_index: int, total_items: int, stage_fraction: float) -
 
 def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                     observation: str, user_id: int, username: str,
-                    vtadmin_username: str, vtadmin_password: str,
+                    adminpanel_username: str, adminpanel_password: str,
                     filters: Optional[Dict[str, Any]] = None):
     """
     Runs in a daemon thread. Persists all progress to DB so it survives
@@ -1977,17 +1977,17 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
         update_job_progress(job_id,
                             status='running',
                             progress_percent=2,
-                            progress_label='Abrindo sessão do VTAdmin...',
+                            progress_label='Abrindo sessão do AdminPanel...',
                             progress_detail='Preparando o navegador para iniciar a higienização.',
                             processed=0,
                             total=total)
 
-        driver = create_vtadmin_driver()
+        driver = create_adminpanel_driver()
         update_job_progress(job_id,
                             progress_percent=6,
                             progress_label='Validando acesso...',
                             progress_detail='Confirmando credenciais e preparando o ambiente.')
-        vtadmin_login(driver, job_id, vtadmin_username, vtadmin_password)
+        adminpanel_login(driver, job_id, adminpanel_username, adminpanel_password)
 
         for index, item in enumerate(selected_items):
             card_number = str(item.get('cartao') or '').strip()
@@ -2010,9 +2010,9 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                 card_hygiene_log(f"Iniciando higienizacao do cartao {card_number} (CPF {cpf})")
 
                 current_step = 'abrir_cartao'
-                row_info = vtadmin_open_card(driver, card_number, cpf)
+                row_info = adminpanel_open_card(driver, card_number, cpf)
                 status_text = (row_info or {}).get('status') or ''
-                normalized_status = normalize_vtadmin_card_status(status_text)
+                normalized_status = normalize_adminpanel_card_status(status_text)
                 if normalized_status in {'INATIVO', 'EM LISTA DE RESTRICAO'}:
                     raise CardHygieneSkipped(
                         f"Cartao {card_number} ignorado porque ja estava com status '{status_text}'.",
@@ -2022,7 +2022,7 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                 pct = _compute_percent(index, total, 0.30)
                 update_job_progress(job_id,
                                     progress_percent=pct,
-                                    progress_label='Cartão localizado no VTAdmin',
+                                    progress_label='Cartão localizado no AdminPanel',
                                     progress_detail=f'Cadastro e cartão {card_number} encontrados. Preparando a inclusão na lista de restrição.',
                                     current_card=card_number,
                                     current_cpf=cpf,
@@ -2037,7 +2037,7 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                                     current_card=card_number,
                                     current_cpf=cpf,
                                     processed=index)
-                birthdate_result = vtadmin_ensure_birthdate_for_update(driver, cpf, job_id)
+                birthdate_result = adminpanel_ensure_birthdate_for_update(driver, cpf, job_id)
                 birthdate_source = (birthdate_result or {}).get('source')
                 if birthdate_source:
                     card_hygiene_log(f"Data de nascimento verificada para o cartao {card_number} usando a origem {birthdate_source}")
@@ -2051,7 +2051,7 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                                     current_card=card_number,
                                     current_cpf=cpf,
                                     processed=index)
-                phone_result = vtadmin_ensure_phone_for_observation(driver, cpf, job_id)
+                phone_result = adminpanel_ensure_phone_for_observation(driver, cpf, job_id)
                 phone_source = (phone_result or {}).get('source') or 'DESCONHECIDA'
                 card_hygiene_log(f"Telefone validado para o cartao {card_number} usando a origem {phone_source}")
                 if birthdate_result and birthdate_result.get('filled') and not (phone_result or {}).get('inserted'):
@@ -2063,11 +2063,11 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                                         current_card=card_number,
                                         current_cpf=cpf,
                                         processed=index)
-                    vtadmin_click_update(driver, job_id)
+                    adminpanel_click_update(driver, job_id)
                 _check_cancelled(job_id, f'{card_number} / apos verificar telefone')
 
                 current_step = 'enviar_para_hotlist'
-                vtadmin_send_to_hotlist(driver, card_number, job_id)
+                adminpanel_send_to_hotlist(driver, card_number, job_id)
 
                 pct = _compute_percent(index, total, 0.62)
                 update_job_progress(job_id,
@@ -2080,7 +2080,7 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                 _check_cancelled(job_id, f'{card_number} / após enviar para hotlist')
 
                 current_step = 'preencher_observacao'
-                vtadmin_set_observation(driver, observation)
+                adminpanel_set_observation(driver, observation)
 
                 pct = _compute_percent(index, total, 0.82)
                 update_job_progress(job_id,
@@ -2093,7 +2093,7 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                 _check_cancelled(job_id, f'{card_number} / após preencher observação')
 
                 current_step = 'atualizar_cadastro'
-                vtadmin_click_update(driver, job_id)
+                adminpanel_click_update(driver, job_id)
 
                 card_hygiene_log(f"Higienizacao concluida para o cartao {card_number}")
                 success_items.append({
@@ -2109,7 +2109,7 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                 update_job_progress(job_id,
                                     progress_percent=pct,
                                     progress_label='Higienização concluída',
-                                    progress_detail=f'Cartão {card_number} concluído com sucesso no VTAdmin.',
+                                    progress_detail=f'Cartão {card_number} concluído com sucesso no AdminPanel.',
                                     current_card=card_number,
                                     current_cpf=cpf,
                                     processed=index + 1)
@@ -2170,14 +2170,14 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
                     driver.quit()
                 except Exception:
                     pass
-                driver = create_vtadmin_driver()
-                vtadmin_login(driver, job_id, vtadmin_username, vtadmin_password)
+                driver = create_adminpanel_driver()
+                adminpanel_login(driver, job_id, adminpanel_username, adminpanel_password)
 
         # Persist success log to DB
         if success_items:
             try:
                 with engine.connect() as conn:
-                    persist_card_hygiene_log(conn, user_id, username, vtadmin_username, observation, success_items, filters)
+                    persist_card_hygiene_log(conn, user_id, username, adminpanel_username, observation, success_items, filters)
                     conn.commit()
             except Exception as exc:
                 card_hygiene_log(f"[_hygiene_worker] Falha ao persistir log de sucesso: {exc}")
@@ -2237,12 +2237,12 @@ def _hygiene_worker(job_id: str, selected_items: List[Dict[str, Any]],
 
 def start_hygiene_background_job(job_id: str, selected_items: List[Dict[str, Any]],
                                   observation: str, user_id: int, username: str,
-                                  vtadmin_username: str, vtadmin_password: str,
+                                  adminpanel_username: str, adminpanel_password: str,
                                   filters: Optional[Dict[str, Any]] = None):
     """Launch a daemon thread for the hygiene job and return immediately."""
     t = threading.Thread(
         target=_hygiene_worker,
-        args=(job_id, selected_items, observation, user_id, username, vtadmin_username, vtadmin_password, filters),
+        args=(job_id, selected_items, observation, user_id, username, adminpanel_username, adminpanel_password, filters),
         daemon=True,
         name=f"hygiene-{job_id[:12]}"
     )
@@ -2282,16 +2282,16 @@ def refresh_hidden_cards_status(conn, card_numbers: Optional[List[str]] = None, 
     driver = None
     refreshed = 0
     try:
-        driver = create_vtadmin_driver()
-        vtadmin_login(driver)
+        driver = create_adminpanel_driver()
+        adminpanel_login(driver)
         for row in rows:
             card_number = str(row.get('card_number') or '').strip()
             cpf = str(row.get('cpf') or '').strip()
             if not card_number:
                 continue
             try:
-                vtadmin_open_card(driver, card_number, cpf)
-                action = vtadmin_get_hotlist_action(driver, card_number)
+                adminpanel_open_card(driver, card_number, cpf)
+                action = adminpanel_get_hotlist_action(driver, card_number)
                 card_hygiene_log(f"Status atual da lista de restricao do cartao {card_number}: {action or 'nao identificado'}")
                 if action == 'Enviar':
                     conn.execute(text("""

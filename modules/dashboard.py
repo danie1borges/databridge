@@ -95,7 +95,7 @@ def parse_hygiene_log_clients(raw_clients):
 HYGIENE_HISTORY_FIELDS = {
     'created_at': {'column': 'created_at', 'type': 'date'},
     'username': {'column': 'username', 'type': 'string'},
-    'vtadmin_username': {'column': 'vtadmin_username', 'type': 'string'},
+    'adminpanel_username': {'column': 'adminpanel_username', 'type': 'string'},
     'observation': {'column': 'observation', 'type': 'string'},
     'total_success': {'column': 'total_success', 'type': 'number'},
     'client_name': {'column': 'clients_json', 'type': 'json_text'},
@@ -1640,7 +1640,7 @@ def get_hygiene_history():
             query_params = dict(params)
             query_params.update({'limit': per_page, 'offset': offset})
             rows = conn.execute(text(f"""
-                SELECT id, user_id, username, vtadmin_username, observation, filter_json,
+                SELECT id, user_id, username, adminpanel_username, observation, filter_json,
                        total_success, created_at
                 FROM databridge_web.databridge_card_hygiene_logs
                 WHERE {where_sql}
@@ -1656,7 +1656,7 @@ def get_hygiene_history():
             items.append({
                 'id': int(row.get('id') or 0),
                 'username': row.get('username') or 'Desconhecido',
-                'vtadmin_username': row.get('vtadmin_username') or '-',
+                'adminpanel_username': row.get('adminpanel_username') or '-',
                 'observation': row.get('observation') or '',
                 'filter_summary': summarize_hygiene_filter(row.get('filter_json')),
                 'total_success': int(row.get('total_success') or 0),
@@ -1695,7 +1695,7 @@ def get_hygiene_history_detail(log_id):
     try:
         with engine.connect() as conn:
             row = conn.execute(text(f"""
-                SELECT id, user_id, username, vtadmin_username, observation, filter_json,
+                SELECT id, user_id, username, adminpanel_username, observation, filter_json,
                        clients_json, total_success, created_at
                 FROM databridge_web.databridge_card_hygiene_logs
                 WHERE id = :log_id {scope_sql}
@@ -1712,7 +1712,7 @@ def get_hygiene_history_detail(log_id):
         return jsonify({
             'id': int(row.get('id') or 0),
             'username': row.get('username') or 'Desconhecido',
-            'vtadmin_username': row.get('vtadmin_username') or '-',
+            'adminpanel_username': row.get('adminpanel_username') or '-',
             'observation': row.get('observation') or '',
             'filter_summary': summarize_hygiene_filter(row.get('filter_json')),
             'total_success': int(row.get('total_success') or 0),
@@ -1747,7 +1747,7 @@ def export_hygiene_history_detail(log_id):
 
         with engine.connect() as conn:
             row = conn.execute(text(f"""
-                SELECT id, user_id, username, vtadmin_username, observation, filter_json,
+                SELECT id, user_id, username, adminpanel_username, observation, filter_json,
                        clients_json, total_success, created_at
                 FROM databridge_web.databridge_card_hygiene_logs
                 WHERE id = :log_id {scope_sql}
@@ -1782,7 +1782,7 @@ def export_hygiene_history_detail(log_id):
         metadata = [
             ('Data', created_label),
             ('Operador Databridge', row.get('username') or 'Desconhecido'),
-            ('Operador VTAdmin', row.get('vtadmin_username') or '-'),
+            ('Operador AdminPanel', row.get('adminpanel_username') or '-'),
             ('Quantidade de cartões', int(row.get('total_success') or len(clients) or 0)),
             ('Falhas', int(job_result.get('failure_count') or len(failed_items) or 0)),
             ('Ignorados', int(job_result.get('skip_count') or len(skipped_items) or 0)),
@@ -2501,7 +2501,7 @@ def anomalias_estudantis():
     """Retorna contagens para os dois cards de anomalia estudantil no dashboard."""
     try:
         with engine.connect() as conn:
-            sem_mercury_count = conn.execute(text("""
+            sem_legacydb_count = conn.execute(text("""
                 SELECT COUNT(DISTINCT REGEXP_REPLACE(va.cpf, '[^0-9]', ''))
                 FROM databridge_db.vw_alunos_aprovados va
                 LEFT JOIN sntr_interligar.SALES_CAD_UNICO_JSON scuj
@@ -2526,7 +2526,7 @@ def anomalias_estudantis():
                   )
             """)).scalar() or 0
 
-        return jsonify({'sem_mercury': int(sem_mercury_count), 'sem_cartao': int(sem_cartao_count)}), 200
+        return jsonify({'sem_legacydb': int(sem_legacydb_count), 'sem_cartao': int(sem_cartao_count)}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -2534,7 +2534,7 @@ def anomalias_estudantis():
 @dashboard_bp.route('/api/dashboard/estudantes_sem_cartao/export', methods=['GET'])
 @login_required
 def export_estudantes_sem_cartao():
-    """Exporta aprovados que existem no Mercury mas não têm cartão tipo 58.03."""
+    """Exporta aprovados que existem no LegacyDB mas não têm cartão tipo 58.03."""
     try:
         with engine.connect() as conn:
             rows = conn.execute(text("""
@@ -2561,7 +2561,7 @@ def export_estudantes_sem_cartao():
 
         out = _build_estudantes_xlsx(
             rows,
-            title_text='Aprovados no Mercury sem Cartão Estudantil (58.03)',
+            title_text='Aprovados no LegacyDB sem Cartão Estudantil (58.03)',
             tab_name='Sem Cartão 58.03',
             accent_color='0EA5E9'
         )
@@ -2572,10 +2572,10 @@ def export_estudantes_sem_cartao():
         return jsonify({'error': str(e)}), 500
 
 
-@dashboard_bp.route('/api/dashboard/estudantes_sem_mercury/export', methods=['GET'])
+@dashboard_bp.route('/api/dashboard/estudantes_sem_legacydb/export', methods=['GET'])
 @login_required
-def export_estudantes_sem_mercury():
-    """Exporta aprovados que não existem no Mercury."""
+def export_estudantes_sem_legacydb():
+    """Exporta aprovados que não existem no LegacyDB."""
     try:
         with engine.connect() as conn:
             rows = conn.execute(text("""
@@ -2597,11 +2597,11 @@ def export_estudantes_sem_mercury():
 
         out = _build_estudantes_xlsx(
             rows,
-            title_text='Aprovados no Sou Estudante sem cadastro no Mercury',
-            tab_name='Sem Mercury',
+            title_text='Aprovados no Portal Estudante sem cadastro no LegacyDB',
+            tab_name='Sem LegacyDB',
             accent_color='7C3AED'
         )
-        filename = f'aprovados_sem_mercury_{datetime.datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        filename = f'aprovados_sem_legacydb_{datetime.datetime.now().strftime("%Y%m%d_%H%M")}.xlsx'
         return send_file(out, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                          as_attachment=True, download_name=filename)
     except Exception as e:

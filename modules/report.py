@@ -29,7 +29,7 @@ from modules.card_hygiene import (
     get_all_active_jobs,
     request_cancel_job,
     set_hygiene_job_popup_closed,
-    validate_vtadmin_credentials,
+    validate_adminpanel_credentials,
 )
 from modules.contact_fallbacks import delivery_fallback_query
 
@@ -379,8 +379,8 @@ _SORT_FIELD_MAP = {
 def _inject_netsales_cte(where_sql, params):
     """If where_sql references nsl_last_sale, inject the netsales CTE into the query.
     Returns (extra_cte_sql, live_table_name) — caller substitutes into the WITH block.
-    nsl_last_sale = COALESCE(COM_NETSALES.last_sale, Mercury.ultima_recarga):
-    COM_NETSALES is always preferred; Mercury is used only when COM_NETSALES has no record."""
+    nsl_last_sale = COALESCE(COM_NETSALES.last_sale, LegacyDB.ultima_recarga):
+    COM_NETSALES is always preferred; LegacyDB is used only when COM_NETSALES has no record."""
     params.pop('__nsl_min__', None)
     if 'nsl_last_sale' not in where_sql:
         return '', 'live_flat'
@@ -477,8 +477,8 @@ def augment_results_with_contacts(flat_rows, conn):
     """
     clientes = {r['num_cpf']: dict(r) for r in conn.execute(text(cliente_q), cpf_params).mappings().fetchall()}
 
-    mercury_q = f"SELECT REPLACE(REPLACE(cpf, '.', ''), '-', '') as num_cpf, nome, email, telefone as cellphone FROM sntr_interligar.SALES_CAD_UNICO_JSON WHERE cpf IN ({cpf_placeholders})"
-    mercurys = {r['num_cpf']: dict(r) for r in conn.execute(text(mercury_q), cpf_params).mappings().fetchall()}
+    legacydb_q = f"SELECT REPLACE(REPLACE(cpf, '.', ''), '-', '') as num_cpf, nome, email, telefone as cellphone FROM sntr_interligar.SALES_CAD_UNICO_JSON WHERE cpf IN ({cpf_placeholders})"
+    legacydbs = {r['num_cpf']: dict(r) for r in conn.execute(text(legacydb_q), cpf_params).mappings().fetchall()}
 
     abt_q = f"""
         SELECT num_cpf, nome, email, celular as cellphone
@@ -505,16 +505,16 @@ def augment_results_with_contacts(flat_rows, conn):
         cpf = d['cpf']
 
         nome = None
-        if cpf in mercurys and mercurys[cpf].get('nome'):
-            nome = mercurys[cpf]['nome']
+        if cpf in legacydbs and legacydbs[cpf].get('nome'):
+            nome = legacydbs[cpf]['nome']
         elif cpf in clientes and clientes[cpf].get('name'):
             nome = clientes[cpf]['name']
         elif cpf in abts and abts[cpf].get('nome'):
             nome = abts[cpf]['nome']
 
-        email, celular, origem = None, None, 'MERCURY_ONLY'
-        if cpf in mercurys and (mercurys[cpf].get('email') or mercurys[cpf].get('cellphone')):
-            email, celular, origem = mercurys[cpf].get('email'), mercurys[cpf].get('cellphone'), 'MERCURY_APP'
+        email, celular, origem = None, None, 'LEGACYDB_ONLY'
+        if cpf in legacydbs and (legacydbs[cpf].get('email') or legacydbs[cpf].get('cellphone')):
+            email, celular, origem = legacydbs[cpf].get('email'), legacydbs[cpf].get('cellphone'), 'LEGACYDB_APP'
         elif cpf in clientes and (clientes[cpf].get('email') or clientes[cpf].get('cellphone')):
             email, celular, origem = clientes[cpf].get('email'), clientes[cpf].get('cellphone'), 'CLIENTE'
         elif cpf in abts and (abts[cpf].get('email') or abts[cpf].get('cellphone')):
@@ -604,13 +604,13 @@ def enrich_with_last_sale(data_list, conn):
             row['ultima_compra_local'] = local_str
             row['ultima_compra_valor'] = valor_reais
 
-    # Mercury local: preenche apenas rows sem COM_NETSALES (ultima_recarga como fallback).
+    # LegacyDB local: preenche apenas rows sem COM_NETSALES (ultima_recarga como fallback).
     missing_netsales = [row for row in data_list if not row.get('ultima_compra_data')]
     if missing_netsales:
-        _enrich_report_from_mercury_local(missing_netsales)
+        _enrich_report_from_legacydb_local(missing_netsales)
 
-    # Reclassifica entradas Mercury que na verdade são transferências de crédito (CAC_KEY1=99999).
-    _cross_check_mercury_transfers_report(data_list)
+    # Reclassifica entradas LegacyDB que na verdade são transferências de crédito (CAC_KEY1=99999).
+    _cross_check_legacydb_transfers_report(data_list)
 
     # Oracle fallback: rows ainda sem ultima_compra_data (transferência de crédito como último recurso).
     missing_oracle = [row for row in data_list if not row.get('ultima_compra_data')]
@@ -618,9 +618,9 @@ def enrich_with_last_sale(data_list, conn):
         _enrich_report_from_cardaccount(missing_oracle)
 
 
-def _enrich_report_from_mercury_local(rows):
-    """Compara ultima_recarga do Mercury (SALES_CAD_UNICO_JSON) com a data já encontrada
-    e sobrescreve se Mercury for mais recente. Usa CPF como chave (mais confiável que JSON_CONTAINS_PATH)."""
+def _enrich_report_from_legacydb_local(rows):
+    """Compara ultima_recarga do LegacyDB (SALES_CAD_UNICO_JSON) com a data já encontrada
+    e sobrescreve se LegacyDB for mais recente. Usa CPF como chave (mais confiável que JSON_CONTAINS_PATH)."""
     import datetime as _dt
     from modules.search import parse_local_card_datetime
     from core.database import engine, safe_json_parse
@@ -646,21 +646,21 @@ def _enrich_report_from_mercury_local(rows):
                 WHERE cpf IN ({placeholders})
             """), params).mappings().fetchall()
     except Exception as exc:
-        print(f"[REPORT] Falha ao consultar Mercury local: {exc}")
+        print(f"[REPORT] Falha ao consultar LegacyDB local: {exc}")
         return
 
-    mercury_by_cpf = {}
+    legacydb_by_cpf = {}
     for db_row in db_rows:
         cpf_norm = str(db_row.get('cpf_norm') or '').strip()
         parsed = safe_json_parse(db_row['cartoes_json'])
         if isinstance(parsed, dict):
-            mercury_by_cpf[cpf_norm] = parsed
+            legacydb_by_cpf[cpf_norm] = parsed
 
     for row in rows:
         cpf_norm = str(row.get('cpf') or '').strip().replace('.', '').replace('-', '')
         card = str(row.get('cartao') or '').strip()
         row_app_id = str(row.get('app_id') or '').strip()
-        parsed = mercury_by_cpf.get(cpf_norm)
+        parsed = legacydb_by_cpf.get(cpf_norm)
         if not isinstance(parsed, dict):
             continue
         card_data = parsed.get(card)
@@ -698,22 +698,22 @@ def _enrich_report_from_mercury_local(rows):
                 pass
 
         row['ultima_compra_data'] = best_dt.strftime('%d/%m/%Y %H:%M')
-        row['ultima_compra_local'] = 'Mercury'
+        row['ultima_compra_local'] = 'LegacyDB'
         row['ultima_compra_valor'] = best_value
 
 
-def _cross_check_mercury_transfers_report(rows):
-    """Reclassifica para 'Transferência de Crédito' rows onde Mercury foi a fonte mas
+def _cross_check_legacydb_transfers_report(rows):
+    """Reclassifica para 'Transferência de Crédito' rows onde LegacyDB foi a fonte mas
     CARDACCOUNT confirma que a recarga veio de uma transferência entre cartões (CAC_KEY1=99999)."""
     import datetime as _dt
     from modules.search import parse_card_number_parts, parse_local_card_datetime
 
-    mercury_rows = [row for row in rows if row.get('ultima_compra_local') == 'Mercury']
-    if not mercury_rows:
+    legacydb_rows = [row for row in rows if row.get('ultima_compra_local') == 'LegacyDB']
+    if not legacydb_rows:
         return
 
     check_list = []
-    for row in mercury_rows:
+    for row in legacydb_rows:
         card = str(row.get('cartao') or '').strip()
         parts = parse_card_number_parts(card)
         if not parts:
@@ -742,7 +742,7 @@ def _cross_check_mercury_transfers_report(rows):
         from modules.dashboard import get_quota_connection
         oracle = get_quota_connection()
     except Exception as exc:
-        print(f"[REPORT] Oracle indisponivel para cruzar transferências Mercury: {exc}")
+        print(f"[REPORT] Oracle indisponivel para cruzar transferências LegacyDB: {exc}")
         return
 
     try:
@@ -773,7 +773,7 @@ def _cross_check_mercury_transfers_report(rows):
             if cursor.fetchone()[0]:
                 row['ultima_compra_local'] = 'Transferência de Crédito'
     except Exception as exc:
-        print(f"[REPORT] Falha ao cruzar transferências Mercury: {exc}")
+        print(f"[REPORT] Falha ao cruzar transferências LegacyDB: {exc}")
     finally:
         try:
             oracle.close()
@@ -1328,13 +1328,13 @@ def get_relatorio():
             if export_excel:
                 df = pd.DataFrame(data_list)
                 origem_map = {
-                    'CLIENTE': 'Área do Cliente',
-                    'MERCURY_APP': 'VTWeb Admin',
+                    'CLIENTE': 'Portal Cliente',
+                    'LEGACYDB_APP': 'AdminPanel Web',
                     'ABT': 'Cadê meu ônibus recarga',
-                    'ESTUDANTE': 'Sou Estudante',
+                    'ESTUDANTE': 'Portal Estudante',
                     'WIFI': 'Wifi Max',
                     'WHATSAPP': 'WhatsApp',
-                    'MERCURY_ONLY': 'Apenas Base Física'
+                    'LEGACYDB_ONLY': 'Apenas Base Física'
                 }
                 if 'origem_contato' in df.columns:
                     df['origem_contato'] = df['origem_contato'].map(origem_map).fillna('Desconhecido')
@@ -1450,20 +1450,20 @@ def process_relatorio_higienizacao():
     filters = data.get('filters')
     selected_cards = [str(card).strip() for card in (data.get('selected_cards') or []) if str(card).strip()]
     observation = (data.get('observation') or '').strip()
-    vtadmin_username = str(data.get('vtadmin_username') or '').strip()
-    vtadmin_password = data.get('vtadmin_password') or ''
+    adminpanel_username = str(data.get('adminpanel_username') or '').strip()
+    adminpanel_password = data.get('adminpanel_password') or ''
 
     if not filters or not (filters.get('rules') or []):
         return jsonify({'error': 'Defina um filtro antes de confirmar a higienização.'}), 400
     if not selected_cards:
         return jsonify({'error': 'Selecione pelo menos um cartão para processar.'}), 400
     if not observation:
-        return jsonify({'error': 'Informe a observação que será enviada ao VTAdmin.'}), 400
+        return jsonify({'error': 'Informe a observação que será enviada ao AdminPanel.'}), 400
 
-    if not vtadmin_username:
-        return jsonify({'error': 'Informe o usuário do VTAdmin para continuar.'}), 400
-    if not str(vtadmin_password).strip():
-        return jsonify({'error': 'Informe a senha do VTAdmin para continuar.'}), 400
+    if not adminpanel_username:
+        return jsonify({'error': 'Informe o usuário do AdminPanel para continuar.'}), 400
+    if not str(adminpanel_password).strip():
+        return jsonify({'error': 'Informe a senha do AdminPanel para continuar.'}), 400
 
     if len(selected_cards) > CARD_HYGIENE_MAX_BATCH:
         return jsonify({'error': f'Por segurança técnica, processe no máximo {CARD_HYGIENE_MAX_BATCH} cartões por requisição.'}), 400
@@ -1513,8 +1513,8 @@ def process_relatorio_higienizacao():
             observation,
             user_id,
             username,
-            vtadmin_username,
-            vtadmin_password,
+            adminpanel_username,
+            adminpanel_password,
             filters,
         )
 
@@ -1529,17 +1529,17 @@ def process_relatorio_higienizacao():
         return jsonify({'error': str(e)}), 500
 
 
-@report_bp.route('/api/relatorio_higienizacao/validate_vtadmin', methods=['POST'])
+@report_bp.route('/api/relatorio_higienizacao/validate_adminpanel', methods=['POST'])
 @login_required
-def validate_relatorio_higienizacao_vtadmin():
+def validate_relatorio_higienizacao_adminpanel():
     if not user_can_manage_card_hygiene():
         return jsonify({'error': 'Você não tem permissão para executar higienização de cadastro.'}), 403
 
     data = request.json or {}
-    vtadmin_username = str(data.get('vtadmin_username') or '').strip()
-    vtadmin_password = data.get('vtadmin_password') or ''
+    adminpanel_username = str(data.get('adminpanel_username') or '').strip()
+    adminpanel_password = data.get('adminpanel_password') or ''
 
-    is_valid, message = validate_vtadmin_credentials(vtadmin_username, vtadmin_password)
+    is_valid, message = validate_adminpanel_credentials(adminpanel_username, adminpanel_password)
     if not is_valid:
         return jsonify({'ok': False, 'error': message}), 400
 

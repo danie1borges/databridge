@@ -237,7 +237,7 @@
                         </div>
                         <p class="attention-subtitle">
                             <i class="fa-solid fa-clock-rotate-left"></i>
-                            Novos cadastros nos últimos <strong>7 dias</strong> sem e-mail e telefone — VTWeb Admin (Mercury)
+                            Novos cadastros nos últimos <strong>7 dias</strong> sem e-mail e telefone — AdminPanel (LegacyDB)
                         </p>
                         <div class="attention-info-banner" id="attention-updated-banner">
                             <i class="fa-regular fa-clock"></i>
@@ -689,13 +689,13 @@
                         <span>Anomalias Estudantis</span>
                     </div>
                     <div class="esm-panel-grid">
-                        <!-- Card 1: Existe no Mercury, mas sem cartão 58.03 -->
+                        <!-- Card 1: Existe no LegacyDB, mas sem cartão 58.03 -->
                         <div class="esm-insight-card esm-card-cartao">
                             <div class="esm-ic-top">
                                 <div class="esm-ic-icon"><i class="fa-solid fa-id-card-clip"></i></div>
                                 <div class="esm-ic-info">
                                     <span class="esm-ic-title">Aprovado sem Cartão Estudantil</span>
-                                    <span class="esm-ic-sub">Existe no Mercury, mas sem cartão tipo <code>58.03</code></span>
+                                    <span class="esm-ic-sub">Existe no LegacyDB, mas sem cartão tipo <code>58.03</code></span>
                                 </div>
                             </div>
                             <div class="esm-ic-bottom">
@@ -709,22 +709,22 @@
                                 </button>
                             </div>
                         </div>
-                        <!-- Card 2: Aprovado mas não existe no Mercury -->
-                        <div class="esm-insight-card esm-card-mercury">
+                        <!-- Card 2: Aprovado mas não existe no LegacyDB -->
+                        <div class="esm-insight-card esm-card-legacydb">
                             <div class="esm-ic-top">
                                 <div class="esm-ic-icon"><i class="fa-solid fa-user-xmark"></i></div>
                                 <div class="esm-ic-info">
-                                    <span class="esm-ic-title">Aprovado sem Cadastro no Mercury</span>
+                                    <span class="esm-ic-title">Aprovado sem Cadastro no LegacyDB</span>
                                     <span class="esm-ic-sub">Requisição aprovada, mas não existe no SALES_CAD_UNICO_JSON</span>
                                 </div>
                             </div>
                             <div class="esm-ic-bottom">
-                                <span class="esm-ic-count" id="esm-count-mercury">
+                                <span class="esm-ic-count" id="esm-count-legacydb">
                                     <span class="esm-loading-dot"></span>
                                     <span class="esm-loading-dot"></span>
                                     <span class="esm-loading-dot"></span>
                                 </span>
-                                <button class="esm-export-btn" id="btn-esm-export-mercury" disabled>
+                                <button class="esm-export-btn" id="btn-esm-export-legacydb" disabled>
                                     <i class="fa-solid fa-file-excel"></i> Exportar XLSX
                                 </button>
                             </div>
@@ -1041,17 +1041,17 @@
                     </div>
                     <div style="display: flex; gap: 12px; font-size: 0.8rem; flex-wrap: wrap; align-items: center;">
                         <span class="badge"
-                            style="background: rgba(236, 72, 153, 0.2); color: #F472B6; border: 1px solid rgba(236, 72, 153, 0.4);">MERCURY</span>
-                        <span class="text-muted">VTWeb Admin</span>
+                            style="background: rgba(236, 72, 153, 0.2); color: #F472B6; border: 1px solid rgba(236, 72, 153, 0.4);">LEGACYDB</span>
+                        <span class="text-muted">AdminPanel Web</span>
                         <span class="badge"
                             style="background: rgba(59, 130, 246, 0.2); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.4);">CLIENTE</span>
-                        <span class="text-muted">Área do Cliente</span>
+                        <span class="text-muted">Portal Cliente</span>
                         <span class="badge"
                             style="background: rgba(99, 102, 241, 0.2); color: #818CF8; border: 1px solid rgba(99, 102, 241, 0.4);">ABT</span>
                         <span class="text-muted">Cadê meu Ônibus Recarga</span>
                         <span class="badge"
                             style="background: rgba(139, 92, 246, 0.2); color: #A78BFA; border: 1px solid rgba(139, 92, 246, 0.4);">ESTUDANTE</span>
-                        <span class="text-muted">Sou Estudante</span>
+                        <span class="text-muted">Portal Estudante</span>
                         <span class="badge"
                             style="background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4);">WIFI</span>
                         <span class="text-muted">Wifi Max</span>
@@ -1191,7 +1191,7 @@
                                 <tr>
                                     <th>Data</th>
                                     <th>Operador</th>
-                                    <th>VTAdmin</th>
+                                    <th>AdminPanel</th>
                                     <th>Cartões</th>
                                     <th>Observação</th>
                                     <th>Filtro utilizado</th>

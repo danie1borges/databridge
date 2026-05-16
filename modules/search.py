@@ -240,11 +240,11 @@ def enrich_recharge_sale_origin(card, usage):
         item['saleReceipt'] = sale.get('RECIBO')
         item['saleDatetime'] = sale['sale_dt'].strftime('%d/%m/%Y %H:%M:%S')
 
-    # Pass 3: Oracle CARDACCOUNT fallback — também reavalia entradas Mercury que podem ser transferências.
+    # Pass 3: Oracle CARDACCOUNT fallback — também reavalia entradas LegacyDB que podem ser transferências.
     still_unmatched = [
         (ri, item, rdt)
         for ri, item, rdt in recharge_rows
-        if (not item.get('saleOrigin') or item.get('saleOrigin') == 'Mercury')
+        if (not item.get('saleOrigin') or item.get('saleOrigin') == 'LegacyDB')
         and not item.get('saleType') and not item.get('saleDatetime')
     ]
     if still_unmatched:
@@ -327,7 +327,7 @@ def get_local_card_usage_fallback(card, start_date, end_date):
                     'datetime': usage_dt.strftime('%d/%m/%Y %H:%M:%S'),
                     'value': 0,
                     'lineCode': '-',
-                    'lineDesc': 'Registro local Mercury',
+                    'lineDesc': 'Registro local LegacyDB',
                     'appDesc': f"{card_type} / App {app_id}",
                     'tranType': 'USO',
                     'purse': details.get('saldo') or 0,
@@ -341,7 +341,7 @@ def get_local_card_usage_fallback(card, start_date, end_date):
                     'datetime': recharge_dt.strftime('%d/%m/%Y %H:%M:%S'),
                     'value': details.get('valor_ultima_recarga') or 0,
                     'lineCode': '-',
-                    'lineDesc': 'Registro local Mercury',
+                    'lineDesc': 'Registro local LegacyDB',
                     'appDesc': f"{card_type} / App {app_id}",
                     'tranType': 'RECARGA',
                     'purse': details.get('saldo') or 0,
@@ -355,7 +355,7 @@ def get_local_card_usage_fallback(card, start_date, end_date):
                     'datetime': pending_recharge_dt.strftime('%d/%m/%Y %H:%M:%S'),
                     'value': details.get('valor_recarga_pendente') or 0,
                     'lineCode': '-',
-                    'lineDesc': 'Recarga pendente no Mercury.',
+                    'lineDesc': 'Recarga pendente no LegacyDB.',
                     'appDesc': f"{card_type} / App {app_id}",
                     'tranType': 'RECARGA PENDENTE',
                     'purse': details.get('saldo') or 0,
@@ -368,7 +368,7 @@ def get_local_card_usage_fallback(card, start_date, end_date):
 
 
 def merge_local_effective_recharges(card, usage, start_date, end_date):
-    """Add effective local Mercury recharges that are missing from the API usage list."""
+    """Add effective local LegacyDB recharges that are missing from the API usage list."""
     local_rows = get_local_card_usage_fallback(card, start_date, end_date)
     if not local_rows:
         return usage, False
@@ -394,9 +394,9 @@ def merge_local_effective_recharges(card, usage, start_date, end_date):
         if key in existing_recharges:
             continue
         local['tranType'] = 'RECARGA'
-        local['saleOrigin'] = 'Mercury'
-        local['lineCode'] = 'MERCURY'
-        local['lineDesc'] = 'Recarga efetivada no Mercury.'
+        local['saleOrigin'] = 'LegacyDB'
+        local['lineCode'] = 'LEGACYDB'
+        local['lineDesc'] = 'Recarga efetivada no LegacyDB.'
         local['localEffectiveRecharge'] = True
         local['tranSequence'] = local.get('tranSequence') or 'Local'
         usage.append(local)
@@ -407,7 +407,7 @@ def merge_local_effective_recharges(card, usage, start_date, end_date):
 
 
 def merge_local_pending_recharges(card, usage, start_date, end_date):
-    """Add local Mercury pending recharges that are missing from the API usage list."""
+    """Add local LegacyDB pending recharges that are missing from the API usage list."""
     local_rows = get_local_card_usage_fallback(card, start_date, end_date)
     if not local_rows:
         return usage, False
@@ -434,7 +434,7 @@ def merge_local_pending_recharges(card, usage, start_date, end_date):
             item = existing_positive[key]
             item['tranType'] = 'RECARGA PENDENTE'
             item['lineCode'] = '-'
-            item['lineDesc'] = 'Recarga pendente no Mercury.'
+            item['lineDesc'] = 'Recarga pendente no LegacyDB.'
             item['appDesc'] = local.get('appDesc') or item.get('appDesc')
             item['tranSequence'] = local.get('tranSequence') or 'Pendente'
             item['localPendingRecharge'] = True
@@ -594,7 +594,7 @@ def merge_cardaccount_missing_recharges(card, usage, start_date, end_date):
             value_cents = int(ca['CAC_TRANVALUE'])
         except Exception:
             continue
-        # Skip if Mercury/API already recorded same value on same day (same physical event).
+        # Skip if LegacyDB/API already recorded same value on same day (same physical event).
         ca_date = raw_dt.date()
         if any(v == value_cents and abs((ca_date - d).days) <= 1
                for v, d in existing_credits):
@@ -640,7 +640,7 @@ def search_cpf():
                 q_rev = text("SELECT cpf FROM sntr_interligar.SALES_CAD_UNICO_JSON WHERE cartoes_json LIKE :card LIMIT 1")
                 found_cpf = conn.execute(q_rev, {"card": f"%{raw_cpf}%"}).scalar()
                 if not found_cpf:
-                    return jsonify({'error': 'Nenhum CPF associado a este cartão na base Mercury.'}), 404
+                    return jsonify({'error': 'Nenhum CPF associado a este cartão na base LegacyDB.'}), 404
                 raw_cpf = str(found_cpf)
         except Exception as e:
             return jsonify({'error': f'Erro na busca reversa: {str(e)}'}), 500
@@ -758,7 +758,7 @@ def search_cpf():
                     cad_data['json_parsed'] = safe_json_parse(cad_data['cartoes_json'])
                 result['cad_unico'] = cad_data
 
-            # 7. databridge_db.vw_alunos_aprovados (Requisições Sou Estudante)
+            # 7. databridge_db.vw_alunos_aprovados (Requisições Portal Estudante)
             q7 = text("""
                 SELECT
                     nome_curso,
@@ -837,7 +837,7 @@ def get_card_usage():
     except Exception as exc:
         print(f"[CARD_USAGE] Falha ao consultar usos do cartao {card}: {exc}")
         return local_fallback_response(
-            'A API oficial oscilou; exibindo o ultimo movimento registrado na base Mercury.',
+            'A API oficial oscilou; exibindo o ultimo movimento registrado na base LegacyDB.',
             source='local_fallback_api_error',
         )
 
@@ -845,7 +845,7 @@ def get_card_usage():
         fallback_usage = get_local_card_usage_fallback(card, start_date, today)
         if fallback_usage:
             return local_fallback_response(
-                'A API oficial nao retornou o detalhamento; exibindo o ultimo movimento registrado na base Mercury.'
+                'A API oficial nao retornou o detalhamento; exibindo o ultimo movimento registrado na base LegacyDB.'
             )
         return jsonify({
             'result': False,
@@ -871,15 +871,15 @@ def get_card_usage():
     source = 'api'
     notes = []
     if added_local_recharges:
-        notes.append('Inclui recarga(s) efetivadas no Mercury que nao aparecem na API de movimentacao do cartao.')
+        notes.append('Inclui recarga(s) efetivadas no LegacyDB que nao aparecem na API de movimentacao do cartao.')
     if added_pending_recharges:
-        notes.append('Inclui recarga(s) pendente(s) registradas no Mercury.')
+        notes.append('Inclui recarga(s) pendente(s) registradas no LegacyDB.')
     note = ' '.join(notes) if notes else None
     if not usage:
         usage = get_local_card_usage_fallback(card, start_date, today)
         if usage:
             source = 'local_fallback'
-            note = 'A API oficial nao retornou o detalhamento; exibindo o ultimo movimento registrado na base Mercury.'
+            note = 'A API oficial nao retornou o detalhamento; exibindo o ultimo movimento registrado na base LegacyDB.'
 
     return jsonify({
         'result': True,
