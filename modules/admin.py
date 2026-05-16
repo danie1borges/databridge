@@ -13,7 +13,7 @@ admin_bp = Blueprint('admin', __name__)
 def admin_list_users():
     with engine.connect() as conn:
         rows = conn.execute(text(
-            "SELECT id, username, email, is_admin, perm_dashboard, perm_analise, perm_cruzamento, perm_relatorio, perm_higienizacao, perm_acompanhar_higienizacao, created_at, last_login FROM datacross_web.datacross_users ORDER BY id"
+            "SELECT id, username, email, is_admin, perm_dashboard, perm_analise, perm_cruzamento, perm_relatorio, perm_higienizacao, perm_acompanhar_higienizacao, created_at, last_login FROM databridge_web.databridge_users ORDER BY id"
         )).mappings().fetchall()
         users = [dict(r) for r in rows]
         for u in users:
@@ -38,13 +38,13 @@ def admin_create_user():
     
     with engine.connect() as conn:
         exists = conn.execute(text(
-            "SELECT id FROM datacross_web.datacross_users WHERE username = :u"
+            "SELECT id FROM databridge_web.databridge_users WHERE username = :u"
         ), {'u': username}).fetchone()
         if exists:
             return jsonify({'error': 'Usuário já existe'}), 409
         
         conn.execute(text("""
-            INSERT INTO datacross_web.datacross_users 
+            INSERT INTO databridge_web.databridge_users 
             (username, email, password_hash, is_admin, perm_dashboard, perm_analise, perm_cruzamento, perm_relatorio, perm_higienizacao, perm_acompanhar_higienizacao)
             VALUES (:username, :email, :pw, :is_admin, :pd, :pa, :pc, :pr, :ph, :pah)
         """), {
@@ -89,13 +89,13 @@ def admin_update_user(user_id):
         if not sets:
             return jsonify({'error': 'Nenhuma alteração enviada'}), 400
         
-        conn.execute(text(f"UPDATE datacross_web.datacross_users SET {', '.join(sets)} WHERE id = :id"), params)
+        conn.execute(text(f"UPDATE databridge_web.databridge_users SET {', '.join(sets)} WHERE id = :id"), params)
         conn.commit()
 
         if user_id == session.get('user_id'):
             refreshed = conn.execute(text("""
                 SELECT is_admin, perm_dashboard, perm_analise, perm_cruzamento, perm_relatorio, perm_higienizacao, perm_acompanhar_higienizacao
-                FROM datacross_web.datacross_users
+                FROM databridge_web.databridge_users
                 WHERE id = :id
             """), {'id': user_id}).mappings().fetchone()
             if refreshed:
@@ -119,7 +119,7 @@ def admin_delete_user(user_id):
         return jsonify({'error': 'Você não pode excluir seu próprio usuário'}), 400
     
     with engine.connect() as conn:
-        conn.execute(text("DELETE FROM datacross_web.datacross_users WHERE id = :id"), {'id': user_id})
+        conn.execute(text("DELETE FROM databridge_web.databridge_users WHERE id = :id"), {'id': user_id})
         conn.commit()
         return jsonify({'ok': True}), 200
 
@@ -133,7 +133,7 @@ def admin_reset_password(user_id):
     
     with engine.connect() as conn:
         conn.execute(text(
-            "UPDATE datacross_web.datacross_users SET password_hash = :pw WHERE id = :id"
+            "UPDATE databridge_web.databridge_users SET password_hash = :pw WHERE id = :id"
         ), {'pw': generate_password_hash(new_pass), 'id': user_id})
         conn.commit()
         return jsonify({'ok': True}), 200

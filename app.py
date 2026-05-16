@@ -27,7 +27,7 @@ app.config['SECRET_KEY'] = SECRET_KEY
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Strict'
-app.config['SESSION_COOKIE_SECURE'] = os.getenv('DATACROSS_COOKIE_SECURE', '0') == '1'
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('DATABRIDGE_COOKIE_SECURE', '0') == '1'
 
 socketio = SocketIO(app, cors_allowed_origins=None, async_mode='threading', logger=False, engineio_logger=False)
 

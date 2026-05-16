@@ -73,7 +73,7 @@ REPORT_APP_NAMES = {
     '302': 'FUNC CONS TUTELAR',
     '303': 'FUNC POLICIA CIVIL',
     '304': 'FUNC EMTU',
-    '305': 'FUNC DATACROSS',
+    '305': 'FUNC DATABRIDGE',
     '306': 'FUNC TEMPORARIO 03',
     '308': 'FUNC TEMP 02',
     '309': 'INSS - EMPRESAS',
@@ -156,16 +156,16 @@ def _get_live_source_sql(app_ids=None):
     )
 
 def ensure_report_preferences_table(conn):
-    conn.execute(text("CREATE DATABASE IF NOT EXISTS datacross_web DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
+    conn.execute(text("CREATE DATABASE IF NOT EXISTS databridge_web DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
     conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS datacross_web.datacross_user_report_filters (
+        CREATE TABLE IF NOT EXISTS databridge_web.databridge_user_report_filters (
             user_id INT NOT NULL,
             report_key VARCHAR(100) NOT NULL,
             filters_json LONGTEXT NULL,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (user_id, report_key),
-            CONSTRAINT fk_datacross_user_report_filters_user
-                FOREIGN KEY (user_id) REFERENCES datacross_web.datacross_users(id) ON DELETE CASCADE
+            CONSTRAINT fk_databridge_user_report_filters_user
+                FOREIGN KEY (user_id) REFERENCES databridge_web.databridge_users(id) ON DELETE CASCADE
         )
     """))
 
@@ -174,7 +174,7 @@ def get_saved_report_builder_state(conn, user_id, report_key='clientes_cartoes_a
     ensure_report_preferences_table(conn)
     row = conn.execute(text("""
         SELECT filters_json
-        FROM datacross_web.datacross_user_report_filters
+        FROM databridge_web.databridge_user_report_filters
         WHERE user_id = :user_id AND report_key = :report_key
     """), {'user_id': user_id, 'report_key': report_key}).fetchone()
 
@@ -190,7 +190,7 @@ def get_saved_report_builder_state(conn, user_id, report_key='clientes_cartoes_a
 def save_report_builder_state(conn, user_id, builder_state, report_key='clientes_cartoes_ativos'):
     ensure_report_preferences_table(conn)
     conn.execute(text("""
-        INSERT INTO datacross_web.datacross_user_report_filters (user_id, report_key, filters_json)
+        INSERT INTO databridge_web.databridge_user_report_filters (user_id, report_key, filters_json)
         VALUES (:user_id, :report_key, :filters_json)
         ON DUPLICATE KEY UPDATE filters_json = VALUES(filters_json), updated_at = CURRENT_TIMESTAMP
     """), {
@@ -271,22 +271,22 @@ def prepare_alunos_sem_direito_temp_table(conn, filters):
         return True
 
     conn.execute(text("""
-        CREATE TEMPORARY TABLE IF NOT EXISTS tmp_datacross_alunos_aprovados (
+        CREATE TEMPORARY TABLE IF NOT EXISTS tmp_databridge_alunos_aprovados (
             cpf VARCHAR(20) NOT NULL,
             modalidade VARCHAR(16) NOT NULL,
             PRIMARY KEY (cpf, modalidade)
         )
     """))
-    conn.execute(text("TRUNCATE TABLE tmp_datacross_alunos_aprovados"))
+    conn.execute(text("TRUNCATE TABLE tmp_databridge_alunos_aprovados"))
     conn.execute(text("""
-        INSERT IGNORE INTO tmp_datacross_alunos_aprovados (cpf, modalidade)
+        INSERT IGNORE INTO tmp_databridge_alunos_aprovados (cpf, modalidade)
         SELECT DISTINCT
             REPLACE(REPLACE(cpf, '.', ''), '-', '') AS cpf,
             CASE
                 WHEN LOWER(TRIM(modalidade)) LIKE 'gratuit%' THEN 'GRATUITO'
                 ELSE 'MEIA'
             END AS modalidade
-        FROM datacross_db.vw_alunos_aprovados
+        FROM databridge_db.vw_alunos_aprovados
         WHERE cpf IS NOT NULL AND cpf != ''
     """))
     conn.info['alunos_sem_direito_temp_ready'] = True
@@ -340,7 +340,7 @@ def release_reactivated_report_cards(conn, filters):
             update_params[key] = card_number
 
         result = conn.execute(text(f"""
-            UPDATE datacross_web.datacross_card_hygiene_hidden_cards
+            UPDATE databridge_web.databridge_card_hygiene_hidden_cards
             SET is_active = 0,
                 reactivated_at = COALESCE(reactivated_at, CURRENT_TIMESTAMP),
                 updated_at = CURRENT_TIMESTAMP
@@ -434,7 +434,7 @@ def fetch_report_rows(conn, filters, limit=None, offset=None, sort_by='cpf', sor
                END AS higienizacao_recente,
                hc.reactivated_at AS higienizacao_reativada_em
         FROM {live_table} f
-        LEFT JOIN datacross_web.datacross_card_hygiene_hidden_cards hc
+        LEFT JOIN databridge_web.databridge_card_hygiene_hidden_cards hc
             ON CONVERT(hc.card_number USING utf8mb4) COLLATE utf8mb4_0900_ai_ci =
                CONVERT(f.cartao USING utf8mb4) COLLATE utf8mb4_0900_ai_ci
         WHERE {where_sql}
@@ -491,7 +491,7 @@ def augment_results_with_contacts(flat_rows, conn):
     """
     abts = {r['num_cpf']: dict(r) for r in conn.execute(text(abt_q), cpf_params).mappings().fetchall()}
 
-    estudante_q = f"SELECT cpf as num_cpf, email, celular as cellphone FROM datacross_db.alunos WHERE cpf IN ({cpf_placeholders}) GROUP BY cpf"
+    estudante_q = f"SELECT cpf as num_cpf, email, celular as cellphone FROM databridge_db.alunos WHERE cpf IN ({cpf_placeholders}) GROUP BY cpf"
     estudantes = {r['num_cpf']: dict(r) for r in conn.execute(text(estudante_q), cpf_params).mappings().fetchall()}
 
     wifi_q = f"SELECT CPF as num_cpf, MAX(EMAIL) as email, MAX(TELEFONE) as cellphone FROM sntr_interligar.WIFIMAX_USERS WHERE CPF IN ({cpf_placeholders}) GROUP BY CPF"
@@ -980,7 +980,7 @@ def build_report_filter_clause(node, params, counter):
                     f.app_id IN ('900', '910')
                     AND NOT EXISTS (
                         SELECT 1
-                        FROM tmp_datacross_alunos_aprovados vaa
+                        FROM tmp_databridge_alunos_aprovados vaa
                         WHERE CONVERT(vaa.cpf USING utf8mb4) COLLATE utf8mb4_0900_ai_ci =
                               CONVERT(REPLACE(REPLACE(f.cpf, '.', ''), '-', '') USING utf8mb4) COLLATE utf8mb4_0900_ai_ci
                           AND (
@@ -998,7 +998,7 @@ def build_report_filter_clause(node, params, counter):
                 (
                     EXISTS (
                         SELECT 1
-                        FROM tmp_datacross_alunos_aprovados vaa
+                        FROM tmp_databridge_alunos_aprovados vaa
                         WHERE CONVERT(vaa.cpf USING utf8mb4) COLLATE utf8mb4_0900_ai_ci =
                               CONVERT(REPLACE(REPLACE(f.cpf, '.', ''), '-', '') USING utf8mb4) COLLATE utf8mb4_0900_ai_ci
                     )
@@ -1668,7 +1668,7 @@ def export_relatorio_higienizacao_result():
 
         summary_rows = [
             ('ID do lote', job.get('id') or ''),
-            ('Usuário DataCross', job.get('username') or ''),
+            ('Usuário Databridge', job.get('username') or ''),
             ('Status', job.get('status') or ''),
             ('Iniciado em', job.get('started_at') or ''),
             ('Finalizado em', job.get('finished_at') or ''),

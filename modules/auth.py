@@ -9,9 +9,9 @@ auth_bp = Blueprint('auth', __name__)
 def init_db():
     """Create users table and default admin if not exists."""
     with engine.connect() as conn:
-        conn.execute(text("CREATE DATABASE IF NOT EXISTS datacross_web DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
+        conn.execute(text("CREATE DATABASE IF NOT EXISTS databridge_web DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
         conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS datacross_web.datacross_users (
+            CREATE TABLE IF NOT EXISTS databridge_web.databridge_users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 username VARCHAR(100) NOT NULL UNIQUE,
                 email VARCHAR(255),
@@ -31,19 +31,19 @@ def init_db():
         
         # Add column to existing table if it doesn't exist
         try:
-            conn.execute(text("ALTER TABLE datacross_web.datacross_users ADD COLUMN perm_anomalia TINYINT(1) DEFAULT 0"))
+            conn.execute(text("ALTER TABLE databridge_web.databridge_users ADD COLUMN perm_anomalia TINYINT(1) DEFAULT 0"))
             conn.commit()
             print('  [AUTH] Coluna perm_anomalia adicionada com sucesso.')
         except Exception as e:
             pass
         try:
-            conn.execute(text("ALTER TABLE datacross_web.datacross_users ADD COLUMN perm_higienizacao TINYINT(1) DEFAULT 0"))
+            conn.execute(text("ALTER TABLE databridge_web.databridge_users ADD COLUMN perm_higienizacao TINYINT(1) DEFAULT 0"))
             conn.commit()
             print('  [AUTH] Coluna perm_higienizacao adicionada com sucesso.')
         except Exception:
             pass
         try:
-            conn.execute(text("ALTER TABLE datacross_web.datacross_users ADD COLUMN perm_acompanhar_higienizacao TINYINT(1) DEFAULT 0"))
+            conn.execute(text("ALTER TABLE databridge_web.databridge_users ADD COLUMN perm_acompanhar_higienizacao TINYINT(1) DEFAULT 0"))
             conn.commit()
             print('  [AUTH] Coluna perm_acompanhar_higienizacao adicionada com sucesso.')
         except Exception:
@@ -51,25 +51,25 @@ def init_db():
         
         # Create history table for bulk search
         conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS datacross_web.datacross_historico_massa (
+            CREATE TABLE IF NOT EXISTS databridge_web.databridge_historico_massa (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 nome_arquivo VARCHAR(255) NOT NULL,
                 data_geracao DATETIME DEFAULT CURRENT_TIMESTAMP,
                 usuario_gerou VARCHAR(100) NOT NULL,
                 total_cpfs INT NOT NULL,
-                CONSTRAINT fk_datacross_historico_massa_user
-                    FOREIGN KEY (user_id) REFERENCES datacross_web.datacross_users(id) ON DELETE CASCADE
+                CONSTRAINT fk_databridge_historico_massa_user
+                    FOREIGN KEY (user_id) REFERENCES databridge_web.databridge_users(id) ON DELETE CASCADE
             )
         """))
         
         conn.commit()
         
         # Create default admin if table is empty
-        count = conn.execute(text("SELECT COUNT(*) FROM datacross_web.datacross_users")).scalar()
+        count = conn.execute(text("SELECT COUNT(*) FROM databridge_web.databridge_users")).scalar()
         if count == 0:
             conn.execute(text("""
-                INSERT INTO datacross_web.datacross_users 
+                INSERT INTO databridge_web.databridge_users 
                 (username, email, password_hash, is_admin, perm_dashboard, perm_analise, perm_cruzamento, perm_relatorio)
                 VALUES (:user, :email, :pw, 1, 1, 1, 1, 1)
             """), {
@@ -111,7 +111,7 @@ def get_current_user():
                 id, username, email, is_admin,
                 perm_dashboard, perm_analise, perm_cruzamento, perm_relatorio,
                 perm_higienizacao, perm_anomalia, perm_acompanhar_higienizacao
-            FROM datacross_web.datacross_users
+            FROM databridge_web.databridge_users
             WHERE id = :id
         """), {'id': user_id}).mappings().fetchone()
 
@@ -158,7 +158,7 @@ def api_login():
     
     with engine.connect() as conn:
         row = conn.execute(text(
-            "SELECT * FROM datacross_web.datacross_users WHERE username = :u"
+            "SELECT * FROM databridge_web.databridge_users WHERE username = :u"
         ), {'u': username}).mappings().fetchone()
         
         if not row or not check_password_hash(row['password_hash'], password):
@@ -166,7 +166,7 @@ def api_login():
         
         # Update last_login
         conn.execute(text(
-            "UPDATE datacross_web.datacross_users SET last_login = NOW() WHERE id = :id"
+            "UPDATE databridge_web.databridge_users SET last_login = NOW() WHERE id = :id"
         ), {'id': row['id']})
         conn.commit()
         

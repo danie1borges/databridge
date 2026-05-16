@@ -66,9 +66,9 @@ def format_card_hygiene_exception(step: str, exc: Exception) -> str:
 # ---------------------------------------------------------------------------
 
 def ensure_card_hygiene_tables(conn):
-    conn.execute(text("CREATE DATABASE IF NOT EXISTS datacross_web DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
+    conn.execute(text("CREATE DATABASE IF NOT EXISTS databridge_web DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
     conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS datacross_web.datacross_card_hygiene_logs (
+        CREATE TABLE IF NOT EXISTS databridge_web.databridge_card_hygiene_logs (
             id INT AUTO_INCREMENT PRIMARY KEY,
             user_id INT NOT NULL,
             username VARCHAR(100) NOT NULL,
@@ -78,12 +78,12 @@ def ensure_card_hygiene_tables(conn):
             clients_json LONGTEXT NOT NULL,
             total_success INT NOT NULL DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_datacross_card_hygiene_logs_user
-                FOREIGN KEY (user_id) REFERENCES datacross_web.datacross_users(id) ON DELETE CASCADE
+            CONSTRAINT fk_databridge_card_hygiene_logs_user
+                FOREIGN KEY (user_id) REFERENCES databridge_web.databridge_users(id) ON DELETE CASCADE
         )
     """))
     conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS datacross_web.datacross_card_hygiene_hidden_cards (
+        CREATE TABLE IF NOT EXISTS databridge_web.databridge_card_hygiene_hidden_cards (
             card_number VARCHAR(100) NOT NULL PRIMARY KEY,
             cpf VARCHAR(20) NULL,
             nome VARCHAR(255) NULL,
@@ -97,15 +97,15 @@ def ensure_card_hygiene_tables(conn):
             last_checked_at DATETIME NULL,
             last_known_hotlist_action VARCHAR(20) NULL,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            CONSTRAINT fk_datacross_card_hygiene_hidden_cards_user
-                FOREIGN KEY (hidden_by_user_id) REFERENCES datacross_web.datacross_users(id) ON DELETE CASCADE,
-            CONSTRAINT fk_datacross_card_hygiene_hidden_cards_log
-                FOREIGN KEY (source_log_id) REFERENCES datacross_web.datacross_card_hygiene_logs(id) ON DELETE SET NULL
+            CONSTRAINT fk_databridge_card_hygiene_hidden_cards_user
+                FOREIGN KEY (hidden_by_user_id) REFERENCES databridge_web.databridge_users(id) ON DELETE CASCADE,
+            CONSTRAINT fk_databridge_card_hygiene_hidden_cards_log
+                FOREIGN KEY (source_log_id) REFERENCES databridge_web.databridge_card_hygiene_logs(id) ON DELETE SET NULL
         )
     """))
     # Jobs table — stores background job state in DB (survives browser close / logout)
     conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS datacross_web.datacross_card_hygiene_jobs (
+        CREATE TABLE IF NOT EXISTS databridge_web.databridge_card_hygiene_jobs (
             id VARCHAR(64) NOT NULL PRIMARY KEY,
             user_id INT NOT NULL,
             username VARCHAR(100) NOT NULL,
@@ -127,20 +127,20 @@ def ensure_card_hygiene_tables(conn):
             popup_should_show TINYINT(1) NOT NULL DEFAULT 0,
             popup_closed_at DATETIME NULL,
             result_json LONGTEXT NULL,
-            CONSTRAINT fk_datacross_card_hygiene_jobs_user
-                FOREIGN KEY (user_id) REFERENCES datacross_web.datacross_users(id) ON DELETE CASCADE
+            CONSTRAINT fk_databridge_card_hygiene_jobs_user
+                FOREIGN KEY (user_id) REFERENCES databridge_web.databridge_users(id) ON DELETE CASCADE
         )
     """))
     for alter_sql in (
-        "ALTER TABLE datacross_web.datacross_card_hygiene_logs ADD COLUMN vtadmin_username VARCHAR(100) NULL AFTER username",
-        "ALTER TABLE datacross_web.datacross_card_hygiene_logs ADD COLUMN filter_json LONGTEXT NULL AFTER observation",
-        "ALTER TABLE datacross_web.datacross_card_hygiene_jobs ADD COLUMN filter_json LONGTEXT NULL AFTER observation",
-        "ALTER TABLE datacross_web.datacross_card_hygiene_jobs ADD COLUMN last_heartbeat_at DATETIME DEFAULT CURRENT_TIMESTAMP AFTER started_at",
-        "ALTER TABLE datacross_web.datacross_card_hygiene_jobs ADD COLUMN popup_should_show TINYINT(1) NOT NULL DEFAULT 0 AFTER finished_at",
-        "ALTER TABLE datacross_web.datacross_card_hygiene_jobs ADD COLUMN popup_closed_at DATETIME NULL AFTER popup_should_show",
-        "ALTER TABLE datacross_web.datacross_card_hygiene_hidden_cards ADD COLUMN reactivated_at DATETIME NULL",
-        "ALTER TABLE datacross_web.datacross_card_hygiene_hidden_cards ADD COLUMN last_checked_at DATETIME NULL",
-        "ALTER TABLE datacross_web.datacross_card_hygiene_hidden_cards ADD COLUMN last_known_hotlist_action VARCHAR(20) NULL",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_logs ADD COLUMN vtadmin_username VARCHAR(100) NULL AFTER username",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_logs ADD COLUMN filter_json LONGTEXT NULL AFTER observation",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_jobs ADD COLUMN filter_json LONGTEXT NULL AFTER observation",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_jobs ADD COLUMN last_heartbeat_at DATETIME DEFAULT CURRENT_TIMESTAMP AFTER started_at",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_jobs ADD COLUMN popup_should_show TINYINT(1) NOT NULL DEFAULT 0 AFTER finished_at",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_jobs ADD COLUMN popup_closed_at DATETIME NULL AFTER popup_should_show",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_hidden_cards ADD COLUMN reactivated_at DATETIME NULL",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_hidden_cards ADD COLUMN last_checked_at DATETIME NULL",
+        "ALTER TABLE databridge_web.databridge_card_hygiene_hidden_cards ADD COLUMN last_known_hotlist_action VARCHAR(20) NULL",
     ):
         try:
             conn.execute(text(alter_sql))
@@ -156,7 +156,7 @@ def create_hygiene_job(user_id: int, username: str, observation: str,
     with engine.connect() as conn:
         ensure_card_hygiene_tables(conn)
         conn.execute(text("""
-            INSERT INTO datacross_web.datacross_card_hygiene_jobs
+            INSERT INTO databridge_web.databridge_card_hygiene_jobs
                 (id, user_id, username, status, observation, filter_json, selected_cards_json,
                  cancel_requested, progress_percent, progress_label, progress_detail,
                  processed, total, started_at, last_heartbeat_at, popup_should_show)
@@ -194,7 +194,7 @@ def update_job_progress(job_id: str, **fields):
     try:
         with engine.connect() as conn:
             conn.execute(text(
-                f"UPDATE datacross_web.datacross_card_hygiene_jobs SET {', '.join(sets)}, last_heartbeat_at = NOW() WHERE id = :jid"
+                f"UPDATE databridge_web.databridge_card_hygiene_jobs SET {', '.join(sets)}, last_heartbeat_at = NOW() WHERE id = :jid"
             ), params)
             conn.commit()
     except Exception as exc:
@@ -205,7 +205,7 @@ def finish_job(job_id: str, status: str, result: Dict[str, Any]):
     try:
         with engine.connect() as conn:
             conn.execute(text("""
-                UPDATE datacross_web.datacross_card_hygiene_jobs
+                UPDATE databridge_web.databridge_card_hygiene_jobs
                 SET status = :status,
                     finished_at = NOW(),
                     result_json = :result_json,
@@ -226,7 +226,7 @@ def is_job_cancelled_in_db(job_id: str) -> bool:
     try:
         with engine.connect() as conn:
             row = conn.execute(text(
-                "SELECT cancel_requested FROM datacross_web.datacross_card_hygiene_jobs WHERE id = :jid"
+                "SELECT cancel_requested FROM databridge_web.databridge_card_hygiene_jobs WHERE id = :jid"
             ), {'jid': job_id}).fetchone()
             return bool(row and row[0])
     except Exception:
@@ -241,7 +241,7 @@ def get_job_from_db(job_id: str) -> Optional[Dict[str, Any]]:
                 SELECT id, user_id, username, observation, status, progress_percent, progress_label,
                        progress_detail, current_card, current_cpf, processed, total,
                        started_at, finished_at, result_json, cancel_requested
-                FROM datacross_web.datacross_card_hygiene_jobs
+                FROM databridge_web.databridge_card_hygiene_jobs
                 WHERE id = :jid
             """), {'jid': job_id}).mappings().fetchone()
             if not row:
@@ -260,7 +260,7 @@ def mark_stale_hygiene_jobs(conn):
     try:
         stale_hours = max(1, int(CARD_HYGIENE_STALE_JOB_HOURS))
         conn.execute(text("""
-            UPDATE datacross_web.datacross_card_hygiene_jobs
+            UPDATE databridge_web.databridge_card_hygiene_jobs
             SET status = CASE
                     WHEN cancel_requested = 1 THEN 'cancelled'
                     ELSE 'failed'
@@ -303,7 +303,7 @@ def get_active_jobs_for_user(user_id: int) -> List[Dict[str, Any]]:
                          ELSE popup_should_show
                        END AS popup_should_show,
                        popup_closed_at
-                FROM datacross_web.datacross_card_hygiene_jobs
+                FROM databridge_web.databridge_card_hygiene_jobs
                 WHERE user_id = :uid
                   AND (
                     status IN ('queued', 'running', 'cancel_requested')
@@ -331,7 +331,7 @@ def set_hygiene_job_popup_closed(job_id: str, user_id: int, can_monitor: bool = 
             ensure_card_hygiene_tables(conn)
             owner_filter = "" if can_monitor else "AND user_id = :uid"
             result = conn.execute(text(f"""
-                UPDATE datacross_web.datacross_card_hygiene_jobs
+                UPDATE databridge_web.databridge_card_hygiene_jobs
                 SET popup_should_show = 0,
                     popup_closed_at = NOW()
                 WHERE id = :jid {owner_filter}
@@ -352,7 +352,7 @@ def get_all_active_jobs() -> List[Dict[str, Any]]:
                 SELECT id, user_id, username, status, progress_percent, progress_label,
                        progress_detail, current_card, current_cpf, processed, total,
                        started_at, finished_at, cancel_requested
-                FROM datacross_web.datacross_card_hygiene_jobs
+                FROM databridge_web.databridge_card_hygiene_jobs
                 WHERE status = 'running'
                 ORDER BY started_at DESC
             """)).mappings().fetchall()
@@ -373,7 +373,7 @@ def get_user_daily_hygiene_usage(conn, user_id: int) -> int:
     try:
         row = conn.execute(text("""
             SELECT COALESCE(SUM(processed), 0)
-            FROM datacross_web.datacross_card_hygiene_jobs
+            FROM databridge_web.databridge_card_hygiene_jobs
             WHERE user_id = :user_id 
               AND DATE(started_at) = CURDATE()
         """), {'user_id': user_id}).scalar()
@@ -387,7 +387,7 @@ def request_cancel_job(job_id: str) -> bool:
     try:
         with engine.connect() as conn:
             conn.execute(text("""
-                UPDATE datacross_web.datacross_card_hygiene_jobs
+                UPDATE databridge_web.databridge_card_hygiene_jobs
                 SET cancel_requested = 1,
                     status = 'cancel_requested'
                 WHERE id = :jid AND status IN ('queued', 'running', 'cancel_requested')
@@ -452,7 +452,7 @@ def get_card_hygiene_progress(cancel_token: Optional[str]) -> Optional[Dict[str,
 def get_card_hygiene_exclusion_sql(alias='f'):
     return (
         f"NOT EXISTS ("
-        f"SELECT 1 FROM datacross_web.datacross_card_hygiene_hidden_cards hc "
+        f"SELECT 1 FROM databridge_web.databridge_card_hygiene_hidden_cards hc "
         f"WHERE CONVERT(hc.card_number USING utf8mb4) COLLATE utf8mb4_0900_ai_ci = "
         f"      CONVERT({alias}.cartao USING utf8mb4) COLLATE utf8mb4_0900_ai_ci "
         f"  AND hc.is_active = 1 "
@@ -466,7 +466,7 @@ def persist_card_hygiene_log(conn, user_id: int, username: str, vtadmin_username
                               filters: Optional[Dict[str, Any]] = None):
     ensure_card_hygiene_tables(conn)
     conn.execute(text("""
-        INSERT INTO datacross_web.datacross_card_hygiene_logs
+        INSERT INTO databridge_web.databridge_card_hygiene_logs
             (user_id, username, vtadmin_username, observation, filter_json, clients_json, total_success)
         VALUES
             (:user_id, :username, :vtadmin_username, :observation, :filter_json, :clients_json, :total_success)
@@ -487,7 +487,7 @@ def persist_card_hygiene_log(conn, user_id: int, username: str, vtadmin_username
             part for part in [observation, item_note] if (part or '').strip()
         ).strip()
         conn.execute(text("""
-            INSERT INTO datacross_web.datacross_card_hygiene_hidden_cards
+            INSERT INTO databridge_web.databridge_card_hygiene_hidden_cards
                 (card_number, cpf, nome, hidden_by_user_id, hidden_by_username, source_log_id, observation, is_active)
             VALUES
                 (:card_number, :cpf, :nome, :user_id, :username, :source_log_id, :observation, 1)
@@ -774,7 +774,7 @@ def lookup_phone_for_hygiene(cpf: str) -> Optional[Dict[str, str]]:
             'ESTUDANTE',
             text("""
                 SELECT celular AS phone
-                FROM datacross_db.alunos
+                FROM databridge_db.alunos
                 WHERE cpf = :cpf
                   AND celular IS NOT NULL
                   AND TRIM(celular) <> ''
@@ -900,7 +900,7 @@ def lookup_birthdate_for_hygiene(cpf: str) -> Optional[Dict[str, str]]:
             'ESTUDANTE',
             text("""
                 SELECT data_nascimento AS birthdate
-                FROM datacross_db.alunos
+                FROM databridge_db.alunos
                 WHERE cpf = :cpf
                   AND data_nascimento IS NOT NULL
                 LIMIT 1
@@ -2261,7 +2261,7 @@ def refresh_hidden_cards_status(conn, card_numbers: Optional[List[str]] = None, 
     params = {}
     sql = """
         SELECT card_number, cpf
-        FROM datacross_web.datacross_card_hygiene_hidden_cards
+        FROM databridge_web.databridge_card_hygiene_hidden_cards
         WHERE is_active = 1
     """
     if card_numbers:
@@ -2295,7 +2295,7 @@ def refresh_hidden_cards_status(conn, card_numbers: Optional[List[str]] = None, 
                 card_hygiene_log(f"Status atual da lista de restricao do cartao {card_number}: {action or 'nao identificado'}")
                 if action == 'Enviar':
                     conn.execute(text("""
-                        UPDATE datacross_web.datacross_card_hygiene_hidden_cards
+                        UPDATE databridge_web.databridge_card_hygiene_hidden_cards
                         SET is_active = 0,
                             last_checked_at = CURRENT_TIMESTAMP,
                             last_known_hotlist_action = :action,
@@ -2304,7 +2304,7 @@ def refresh_hidden_cards_status(conn, card_numbers: Optional[List[str]] = None, 
                     """), {'card_number': card_number, 'action': action})
                 else:
                     conn.execute(text("""
-                        UPDATE datacross_web.datacross_card_hygiene_hidden_cards
+                        UPDATE databridge_web.databridge_card_hygiene_hidden_cards
                         SET last_checked_at = CURRENT_TIMESTAMP,
                             last_known_hotlist_action = :action,
                             updated_at = CURRENT_TIMESTAMP

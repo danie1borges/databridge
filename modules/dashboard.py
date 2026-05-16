@@ -227,7 +227,7 @@ def find_hygiene_job_result_for_log(conn, log_row):
 
     row = conn.execute(text("""
         SELECT result_json
-        FROM datacross_web.datacross_card_hygiene_jobs
+        FROM databridge_web.databridge_card_hygiene_jobs
         WHERE user_id = :user_id
           AND username = :username
           AND COALESCE(observation, '') = :observation
@@ -296,7 +296,7 @@ def build_hygiene_dashboard_payload():
                 COUNT(DISTINCT user_id) AS total_operadores,
                 COALESCE(SUM(CASE WHEN DATE(created_at) = CURDATE() THEN total_success ELSE 0 END), 0) AS cartoes_hoje,
                 COALESCE(SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN total_success ELSE 0 END), 0) AS cartoes_7d
-            FROM datacross_web.datacross_card_hygiene_logs
+            FROM databridge_web.databridge_card_hygiene_logs
         """)).mappings().fetchone()
 
         ranking_rows = conn.execute(text("""
@@ -306,7 +306,7 @@ def build_hygiene_dashboard_payload():
                 COUNT(*) AS total_lotes,
                 COALESCE(SUM(total_success), 0) AS total_cartoes,
                 MAX(created_at) AS ultima_execucao
-            FROM datacross_web.datacross_card_hygiene_logs
+            FROM databridge_web.databridge_card_hygiene_logs
             GROUP BY user_id, username
             ORDER BY total_cartoes DESC, total_lotes DESC, username ASC
             LIMIT 15
@@ -317,7 +317,7 @@ def build_hygiene_dashboard_payload():
                 DATE(created_at) AS ref_date,
                 COUNT(*) AS total_lotes,
                 COALESCE(SUM(total_success), 0) AS total_cartoes
-            FROM datacross_web.datacross_card_hygiene_logs
+            FROM databridge_web.databridge_card_hygiene_logs
             WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
             GROUP BY DATE(created_at)
             ORDER BY ref_date ASC
@@ -332,7 +332,7 @@ def build_hygiene_dashboard_payload():
                 clients_json,
                 total_success,
                 created_at
-            FROM datacross_web.datacross_card_hygiene_logs
+            FROM databridge_web.databridge_card_hygiene_logs
             ORDER BY created_at DESC
             LIMIT 200
         """)).mappings().fetchall()
@@ -469,7 +469,7 @@ def refresh_dashboard_cache():
                     SUM(CASE WHEN email IS NULL OR email = '' THEN 1 ELSE 0 END) as sem_email,
                     SUM(CASE WHEN celular IS NULL OR celular = '' THEN 1 ELSE 0 END) as sem_celular,
                     SUM(CASE WHEN CONCAT_WS(', ', logradouro, numero, complemento, bairro, endereco, cep) = '' OR logradouro IS NULL THEN 1 ELSE 0 END) as sem_endereco
-                FROM datacross_db.alunos
+                FROM databridge_db.alunos
             """)
             r_est = conn.execute(q_estudante).fetchone()
             stats['estudantes'] = {
@@ -1633,7 +1633,7 @@ def get_hygiene_history():
         with engine.connect() as conn:
             total = conn.execute(text(f"""
                 SELECT COUNT(1)
-                FROM datacross_web.datacross_card_hygiene_logs
+                FROM databridge_web.databridge_card_hygiene_logs
                 WHERE {where_sql}
             """), params).scalar() or 0
 
@@ -1642,7 +1642,7 @@ def get_hygiene_history():
             rows = conn.execute(text(f"""
                 SELECT id, user_id, username, vtadmin_username, observation, filter_json,
                        total_success, created_at
-                FROM datacross_web.datacross_card_hygiene_logs
+                FROM databridge_web.databridge_card_hygiene_logs
                 WHERE {where_sql}
                 ORDER BY created_at DESC
                 LIMIT :limit OFFSET :offset
@@ -1697,7 +1697,7 @@ def get_hygiene_history_detail(log_id):
             row = conn.execute(text(f"""
                 SELECT id, user_id, username, vtadmin_username, observation, filter_json,
                        clients_json, total_success, created_at
-                FROM datacross_web.datacross_card_hygiene_logs
+                FROM databridge_web.databridge_card_hygiene_logs
                 WHERE id = :log_id {scope_sql}
                 LIMIT 1
             """), params).mappings().first()
@@ -1749,7 +1749,7 @@ def export_hygiene_history_detail(log_id):
             row = conn.execute(text(f"""
                 SELECT id, user_id, username, vtadmin_username, observation, filter_json,
                        clients_json, total_success, created_at
-                FROM datacross_web.datacross_card_hygiene_logs
+                FROM databridge_web.databridge_card_hygiene_logs
                 WHERE id = :log_id {scope_sql}
                 LIMIT 1
             """), params).mappings().first()
@@ -1781,7 +1781,7 @@ def export_hygiene_history_detail(log_id):
 
         metadata = [
             ('Data', created_label),
-            ('Operador DataCross', row.get('username') or 'Desconhecido'),
+            ('Operador Databridge', row.get('username') or 'Desconhecido'),
             ('Operador VTAdmin', row.get('vtadmin_username') or '-'),
             ('Quantidade de cartões', int(row.get('total_success') or len(clients) or 0)),
             ('Falhas', int(job_result.get('failure_count') or len(failed_items) or 0)),
@@ -2503,7 +2503,7 @@ def anomalias_estudantis():
         with engine.connect() as conn:
             sem_mercury_count = conn.execute(text("""
                 SELECT COUNT(DISTINCT REGEXP_REPLACE(va.cpf, '[^0-9]', ''))
-                FROM datacross_db.vw_alunos_aprovados va
+                FROM databridge_db.vw_alunos_aprovados va
                 LEFT JOIN sntr_interligar.SALES_CAD_UNICO_JSON scuj
                     ON REGEXP_REPLACE(va.cpf, '[^0-9]', '') =
                        REPLACE(REPLACE(CONVERT(scuj.cpf USING utf8mb4) COLLATE utf8mb4_unicode_ci, '.', ''), '-', '')
@@ -2513,7 +2513,7 @@ def anomalias_estudantis():
 
             sem_cartao_count = conn.execute(text("""
                 SELECT COUNT(DISTINCT REGEXP_REPLACE(va.cpf, '[^0-9]', ''))
-                FROM datacross_db.vw_alunos_aprovados va
+                FROM databridge_db.vw_alunos_aprovados va
                 INNER JOIN sntr_interligar.SALES_CAD_UNICO_JSON scuj
                     ON REGEXP_REPLACE(va.cpf, '[^0-9]', '') =
                        REPLACE(REPLACE(CONVERT(scuj.cpf USING utf8mb4) COLLATE utf8mb4_unicode_ci, '.', ''), '-', '')
@@ -2544,7 +2544,7 @@ def export_estudantes_sem_cartao():
                     DATE_FORMAT(MAX(va.data_requisicao), '%d/%m/%Y') AS ultima_requisicao,
                     DATE_FORMAT(MAX(va.data_inicio),     '%d/%m/%Y') AS data_inicio,
                     DATE_FORMAT(MAX(va.data_termino),    '%d/%m/%Y') AS data_termino
-                FROM datacross_db.vw_alunos_aprovados va
+                FROM databridge_db.vw_alunos_aprovados va
                 INNER JOIN sntr_interligar.SALES_CAD_UNICO_JSON scuj
                     ON REGEXP_REPLACE(va.cpf, '[^0-9]', '') =
                        REPLACE(REPLACE(CONVERT(scuj.cpf USING utf8mb4) COLLATE utf8mb4_unicode_ci, '.', ''), '-', '')
@@ -2585,7 +2585,7 @@ def export_estudantes_sem_mercury():
                     DATE_FORMAT(MAX(va.data_requisicao), '%d/%m/%Y') AS ultima_requisicao,
                     DATE_FORMAT(MAX(va.data_inicio),     '%d/%m/%Y') AS data_inicio,
                     DATE_FORMAT(MAX(va.data_termino),    '%d/%m/%Y') AS data_termino
-                FROM datacross_db.vw_alunos_aprovados va
+                FROM databridge_db.vw_alunos_aprovados va
                 LEFT JOIN sntr_interligar.SALES_CAD_UNICO_JSON scuj
                     ON REGEXP_REPLACE(va.cpf, '[^0-9]', '') =
                        REPLACE(REPLACE(CONVERT(scuj.cpf USING utf8mb4) COLLATE utf8mb4_unicode_ci, '.', ''), '-', '')

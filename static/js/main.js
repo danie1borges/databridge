@@ -5,12 +5,12 @@ const APP_NAMES = {
     "1008": "DATA-COL-AP1008", "1023": "C.D.2-AP1023", "100": "BOTOEIRAS", "1011": "DATA-COL-AP1011",
     "700": "FUNCIONAL", "800": "IDOSO", "3": "SGC", "111": "ABT", "110": "QRCODE",
     "301": "FISCAL TRANSP", "302": "CONS TUTELAR", "303": "POLICIA CIVL", "304": "EMTU",
-    "305": "DATACROSS", "306": "FUNC TEMP 03", "307": "FUNC INTEGRACAO", "308": "FUNC TEMP 02",
+    "305": "DATABRIDGE", "306": "FUNC TEMP 03", "307": "FUNC INTEGRACAO", "308": "FUNC TEMP 02",
     "309": "INSS - EMPRESAS", "310": "FUNC SISTEMA", "605": "GRATUIDADE_C", "270": "DTP-PNE C/AC",
     "271": "DTP-EST PRIV", "204": "DTP-FISC TRANSP", "267": "DTP-FUN SIS T02", "299": "E1 VLR",
     "298": "E1 ERROR", "297": "E1 GRAT", "910": "ESCOLAR", "201": "DTP-VALE COMUM", "205": "DTP-ESTUDANTE",
     "206": "DTP - PNE", "263": "DTP - FUNC EMTU", "207": "DTP - V.T", "209": "DTP-FUNC SISTEM",
-    "219": "DTP-PORTADOR", "220": "DTP - C.TUTELAR", "222": "DTP - P. CIVIL", "264": "DTP - DATACROSS",
+    "219": "DTP-PORTADOR", "220": "DTP - C.TUTELAR", "222": "DTP - P. CIVIL", "264": "DTP - DATABRIDGE",
     "269": "DTP- INSS", "248": "DTP-CADEIRANTE", "265": "DTP-TEMPORARIO", "266": "DTP-INTEGRACAO",
     "311": "FUNC TEMP", "620": "ESPECIAL (NC)", "625": "ESP C/AC (NC)", "312": "FUNC IBGE",
     "112": "EMV", "505": "P SOCIAL", "260": "MANUTENCAO", "905": "ESCOLAR GRATUIDADE MUNICIPAL"
@@ -1446,7 +1446,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const hygieneHistoryFields = [
         { id: 'created_at', label: 'Data da execução', type: 'date' },
-        { id: 'username', label: 'Operador DataCross', type: 'string', adminOnly: true },
+        { id: 'username', label: 'Operador Databridge', type: 'string', adminOnly: true },
         { id: 'vtadmin_username', label: 'Operador VTAdmin', type: 'string' },
         { id: 'observation', label: 'Observação', type: 'string' },
         { id: 'total_success', label: 'Quantidade de cartões', type: 'number' },
@@ -3248,12 +3248,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!bestPhone && data.sntr_cliente.celular) { bestPhone = data.sntr_cliente.celular; bestPhoneSrc = 'Área do Cliente'; }
             if (!bestAddress && data.sntr_cliente.endereco) { bestAddress = data.sntr_cliente.endereco; bestAddressSrc = 'Área do Cliente'; }
         }
-        if (data.datacross_db_alunos) {
+        if (data.databridge_db_alunos) {
             sources.push({ key: 'estudante', name: 'Estudante', icon: 'fa-user-graduate', color: '#8B5CF6' });
-            if (!bestName && data.datacross_db_alunos.nome) bestName = data.datacross_db_alunos.nome;
-            if (!bestEmail && data.datacross_db_alunos.email) { bestEmail = data.datacross_db_alunos.email; bestEmailSrc = 'Estudante'; }
-            if (!bestPhone && data.datacross_db_alunos.celular) { bestPhone = data.datacross_db_alunos.celular; bestPhoneSrc = 'Estudante'; }
-            if (!bestAddress && data.datacross_db_alunos.endereco) { bestAddress = data.datacross_db_alunos.endereco; bestAddressSrc = 'Estudante'; }
+            if (!bestName && data.databridge_db_alunos.nome) bestName = data.databridge_db_alunos.nome;
+            if (!bestEmail && data.databridge_db_alunos.email) { bestEmail = data.databridge_db_alunos.email; bestEmailSrc = 'Estudante'; }
+            if (!bestPhone && data.databridge_db_alunos.celular) { bestPhone = data.databridge_db_alunos.celular; bestPhoneSrc = 'Estudante'; }
+            if (!bestAddress && data.databridge_db_alunos.endereco) { bestAddress = data.databridge_db_alunos.endereco; bestAddressSrc = 'Estudante'; }
         }
         if (data.abt_data) {
             sources.push({ key: 'abt', name: 'ABT', icon: 'fa-database', color: '#10B981' });
@@ -3285,7 +3285,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${[
                             { name: 'Mercury', icon: 'fa-credit-card', color: '#EC4899', found: !!data.cad_unico },
                             { name: 'Área do Cliente', icon: 'fa-users', color: '#3B82F6', found: !!data.sntr_cliente },
-                            { name: 'Sou Estudante', icon: 'fa-user-graduate', color: '#8B5CF6', found: !!data.datacross_db_alunos },
+                            { name: 'Sou Estudante', icon: 'fa-user-graduate', color: '#8B5CF6', found: !!data.databridge_db_alunos },
                             { name: 'ABT', icon: 'fa-database', color: '#10B981', found: !!data.abt_data },
                             { name: 'Wifi Max', icon: 'fa-wifi', color: '#F59E0B', found: !!data.wifi_users },
                             { name: 'WhatsApp', icon: 'fa-brands fa-whatsapp', color: '#22C55E', found: !!data.whatsapp },
@@ -3346,8 +3346,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 { icon: 'fa-map-pin', label: 'Endereço', value: c.endereco },
             ]);
         }
-        if (data.datacross_db_alunos) {
-            const a = data.datacross_db_alunos;
+        if (data.databridge_db_alunos) {
+            const a = data.databridge_db_alunos;
             const reqCount = data.requisicoes_estudante ? data.requisicoes_estudante.length : 0;
             const lastReq = reqCount > 0 ? data.requisicoes_estudante[0] : null;
             const lastStatus = lastReq ? lastReq.status : null;
@@ -3492,7 +3492,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ===== ESTUDANTE REQUIRES (MODAL) =====
-        if (data.datacross_db_alunos || (data.requisicoes_estudante && data.requisicoes_estudante.length > 0)) {
+        if (data.databridge_db_alunos || (data.requisicoes_estudante && data.requisicoes_estudante.length > 0)) {
             html += `
             <div id="modal-estudante" class="student-history-modal" onclick="if(event.target === this) this.style.display='none'">
                 <div class="glass-panel student-history-dialog">

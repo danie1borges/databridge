@@ -17,11 +17,11 @@ bulk_bp = Blueprint('bulk', __name__)
 
 def _ensure_bulk_jobs_table(conn):
     conn.execute(text(
-        "CREATE DATABASE IF NOT EXISTS datacross_web "
+        "CREATE DATABASE IF NOT EXISTS databridge_web "
         "DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
     ))
     conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS datacross_web.datacross_bulk_jobs (
+        CREATE TABLE IF NOT EXISTS databridge_web.databridge_bulk_jobs (
             id          VARCHAR(36)  NOT NULL,
             user_id     INT          NOT NULL,
             username    VARCHAR(100) DEFAULT '',
@@ -46,7 +46,7 @@ def create_bulk_job(user_id, username, filename, total_cpfs):
         with engine.connect() as conn:
             _ensure_bulk_jobs_table(conn)
             conn.execute(text("""
-                INSERT INTO datacross_web.datacross_bulk_jobs
+                INSERT INTO databridge_web.databridge_bulk_jobs
                     (id, user_id, username, filename, total_cpfs)
                 VALUES (:id, :uid, :usr, :fn, :total)
             """), {'id': job_id, 'uid': user_id, 'usr': username,
@@ -67,7 +67,7 @@ def update_bulk_job(job_id, progress, msg, status='running',
             if total_cpfs is not None:
                 params['tc'] = total_cpfs
             conn.execute(text(f"""
-                UPDATE datacross_web.datacross_bulk_jobs
+                UPDATE databridge_web.databridge_bulk_jobs
                 SET progress=:p, progress_msg=:msg, status=:st,
                     download_url=:dl, error_msg=:em{extra}
                 WHERE id=:id
@@ -84,7 +84,7 @@ def get_bulk_job(job_id):
                 SELECT id, user_id, username, filename, status,
                        progress, progress_msg, download_url, error_msg, total_cpfs,
                        created_at, updated_at
-                FROM datacross_web.datacross_bulk_jobs
+                FROM databridge_web.databridge_bulk_jobs
                 WHERE id = :id
             """), {'id': job_id}).mappings().fetchone()
             return dict(row) if row else None
@@ -237,7 +237,7 @@ def process_task(socketio, data, user_sid, username, user_id):
             _emit(socketio, user_sid, job_id, 'status',
                   {'msg': 'Buscando em Sou Estudante...', 'progress': 32})
             q_e = f"""SELECT DISTINCT cpf as cpf_limpo, celular as celular_estudante, email as email_estudante
-                      FROM datacross_db.alunos
+                      FROM databridge_db.alunos
                       WHERE cpf IN ({cpfs_in})"""
             df_e = pd.read_sql(q_e, conn).drop_duplicates('cpf_limpo')
 
@@ -543,7 +543,7 @@ def process_task(socketio, data, user_sid, username, user_id):
         try:
             with engine.connect() as conn:
                 conn.execute(text("""
-                    INSERT INTO datacross_web.datacross_historico_massa
+                    INSERT INTO databridge_web.databridge_historico_massa
                     (user_id, nome_arquivo, usuario_gerou, total_cpfs)
                     VALUES (:uid, :nome, :usr, :total)
                 """), {

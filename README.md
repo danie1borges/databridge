@@ -1,4 +1,4 @@
-# DataCross Analytics
+# Databridge Analytics
 
 Dashboard web para análise de dados de CRM — busca, higienização de cartões,
 relatórios e processamento em lote, com integração a bancos MySQL e Oracle.
@@ -38,8 +38,8 @@ relatórios e processamento em lote, com integração a bancos MySQL e Oracle.
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/<seu-usuario>/datacross_analise.git
-cd datacross_analise
+git clone https://github.com/<seu-usuario>/databridge_analise.git
+cd databridge_analise
 ```
 
 ### 2. Crie um ambiente virtual e instale as dependências
@@ -80,10 +80,10 @@ ORACLE_CONFIG = {
 Alternativamente, use variáveis de ambiente (recomendado em produção):
 
 ```bash
-export DATACROSS_MYSQL_HOST=seu-host
-export DATACROSS_MYSQL_USER=seu-usuario
-export DATACROSS_MYSQL_PASSWORD=sua-senha
-export DATACROSS_MYSQL_DATABASE=seu-banco
+export DATABRIDGE_MYSQL_HOST=seu-host
+export DATABRIDGE_MYSQL_USER=seu-usuario
+export DATABRIDGE_MYSQL_PASSWORD=sua-senha
+export DATABRIDGE_MYSQL_DATABASE=seu-banco
 ```
 
 ### 4. Execute a aplicação
@@ -99,7 +99,7 @@ Acesse `http://localhost:5004` no navegador.
 ## Estrutura do projeto
 
 ```
-datacross_analise/
+databridge_analise/
 ├── app.py                    # Entrada da aplicação Flask + SocketIO
 ├── core/
 │   ├── config.example.py     # Modelo de configuração (sem credenciais)

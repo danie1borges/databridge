@@ -651,7 +651,7 @@ def search_cpf():
     result = {
         'cpf': raw_cpf,
         'sntr_cliente': None,
-        'datacross_db_alunos': None,
+        'databridge_db_alunos': None,
         'abt_data': None,
         'wifi_users': None,
         'whatsapp': None,
@@ -698,7 +698,7 @@ def search_cpf():
                     'endereco': endereco_cliente or ''
                 }
 
-            # 2. datacross_db.alunos
+            # 2. databridge_db.alunos
             q2 = text("""
                 SELECT 
                     nome,
@@ -709,7 +709,7 @@ def search_cpf():
                         SEPARATOR ' | '
                     ) AS todos_enderecos
                 FROM 
-                    datacross_db.alunos
+                    databridge_db.alunos
                 WHERE cpf = :cpf
                 GROUP BY 
                     nome,
@@ -718,7 +718,7 @@ def search_cpf():
                 LIMIT 1
             """)
             row2 = conn.execute(q2, {"cpf": cpf_limpo}).fetchone()
-            if row2: result['datacross_db_alunos'] = {'nome': row2[0], 'celular': row2[1], 'email': row2[2], 'endereco': row2[3]}
+            if row2: result['databridge_db_alunos'] = {'nome': row2[0], 'celular': row2[1], 'email': row2[2], 'endereco': row2[3]}
 
             # 3. sntr_interligar.COM_CLIENTES_ABT
             q3 = text("""
@@ -758,7 +758,7 @@ def search_cpf():
                     cad_data['json_parsed'] = safe_json_parse(cad_data['cartoes_json'])
                 result['cad_unico'] = cad_data
 
-            # 7. datacross_db.vw_alunos_aprovados (Requisições Sou Estudante)
+            # 7. databridge_db.vw_alunos_aprovados (Requisições Sou Estudante)
             q7 = text("""
                 SELECT
                     nome_curso,
@@ -769,7 +769,7 @@ def search_cpf():
                     data_inicio,
                     data_termino,
                     data_requisicao 
-                FROM datacross_db.vw_alunos_aprovados
+                FROM databridge_db.vw_alunos_aprovados
                 WHERE cpf IN (:cpf_limpo, :cpf_formatted)
                 ORDER BY CASE WHEN status = 'Aprovado' THEN 0 ELSE 1 END, data_requisicao DESC
             """)
@@ -942,7 +942,7 @@ def get_historico_massa():
             # Fetch top 10 most recent generated files for THIS user only
             query = text('''
                 SELECT id, nome_arquivo, data_geracao, usuario_gerou, total_cpfs 
-                FROM datacross_web.datacross_historico_massa 
+                FROM databridge_web.databridge_historico_massa 
                 WHERE user_id = :uid
                 ORDER BY data_geracao DESC 
                 LIMIT 10

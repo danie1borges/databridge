@@ -17,7 +17,7 @@ O `core/config.py` nao deve aparecer.
 ```powershell
 git init
 git add .
-git commit -m "Primeira versao do DataCross"
+git commit -m "Primeira versao do Databridge"
 git branch -M main
 git remote add origin https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
 git push -u origin main
