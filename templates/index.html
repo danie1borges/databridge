@@ -1,0 +1,1358 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>DataCross Analytics</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3.6">
+    <!-- SocketIO -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo.png') }}">
+</head>
+
+<body>
+    <!-- User data injected server-side (only accessible after authenticated /app route) -->
+    <script>
+        window.__CURRENT_USER__ = {{ current_user | tojson | safe }};
+        window.__BUILD_ID__ = "{{ build_id }}";
+    </script>
+
+    <!-- Rotate Overlay (mobile portrait after login) -->
+    <div id="rotate-overlay" class="rotate-overlay">
+        <div class="rotate-overlay-icon-wrap">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+        </div>
+        <div class="rotate-overlay-title">Gire o dispositivo</div>
+        <div class="rotate-overlay-sub">Para melhor visualização, use o modo paisagem</div>
+    </div>
+
+    <!-- Quick Search Modal (Ctrl+K) -->
+    <div class="quick-search-overlay hidden" id="quick-search-overlay">
+        <div class="quick-search-modal">
+            <div class="quick-search-header">
+                <i class="fa-solid fa-magnifying-glass quick-search-icon"></i>
+                <input type="text" id="quick-search-input" placeholder="Digite CPF ou Cartão e pressione Enter..."
+                    autocomplete="off">
+                <kbd class="quick-search-kbd">ESC</kbd>
+            </div>
+            <div class="quick-search-hint">
+                <i class="fa-regular fa-lightbulb"></i> Pesquisa rápida — navega direto para a Análise do Cliente
+            </div>
+        </div>
+    </div>
+
+    <div class="app-container" id="app-container">
+
+        <!-- Sidebar (desktop only) -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="DataCross"
+                    style="height: 34px; object-fit: contain; flex-shrink:0;">
+                <div class="brand-lockup">
+                    <span class="brand-title">DataCross</span>
+                    <span class="brand-subtitle text-gradient">Data Analytics</span>
+                </div>
+                <button class="sidebar-pin-btn" id="sidebar-pin-btn" title="Fixar menu">
+                    <i class="fa-solid fa-thumbtack"></i>
+                </button>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-target="dashboard-view" id="nav-dashboard" data-tooltip="Dashboard">
+                    <i class="fa-solid fa-house"></i><span class="nav-label">Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-target="single-search-view" id="nav-analise" data-tooltip="Análise do Cliente">
+                    <i class="fa-solid fa-magnifying-glass"></i><span class="nav-label">Análise do Cliente</span>
+                </a>
+                <a href="#" class="nav-item" data-target="bulk-search-view" id="nav-cruzamento" data-tooltip="Cruzamento em Massa">
+                    <i class="fa-solid fa-file-excel"></i><span class="nav-label">Cruzamento em Massa</span>
+                </a>
+                <a href="#" class="nav-item" data-target="report-view" id="nav-relatorio" data-tooltip="Relatório">
+                    <i class="fa-solid fa-table-list"></i><span class="nav-label">Relatório</span>
+                </a>
+                <a href="#" class="nav-item" data-target="hygiene-history-view" id="nav-hygiene-history" data-tooltip="Hist. Higienização" style="display:none;">
+                    <i class="fa-solid fa-shield-heart"></i><span class="nav-label">Histórico de Higienização</span>
+                </a>
+                <a href="#" class="nav-item" data-target="admin-view" id="nav-admin" data-tooltip="Administração" style="display:none;">
+                    <i class="fa-solid fa-users-gear"></i><span class="nav-label">Administração</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="avatar" id="user-avatar">?</div>
+                    <div class="details">
+                        <span class="name" id="user-display-name">Usuário</span>
+                        <span class="role" id="user-display-role">DataCross App</span>
+                    </div>
+                    <button id="btn-logout" class="btn-logout" title="Sair">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+                </div>
+                <div class="dev-signature" style="text-align:center; font-size:0.72rem; color:var(--text-sec); padding-top:12px; line-height:1.6;">
+                    <i class="fa-solid fa-code"></i> Desenvolvido por: <a href="https://github.com/danie1borges" target="_blank"
+                        style="color:var(--text-primary); text-decoration:none; font-weight:600;">Daniel Borges</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Bottom Nav (mobile only) -->
+        <nav class="bottom-nav" id="bottom-nav">
+            <a href="#" class="bn-item active" data-target="dashboard-view" id="bn-dashboard">
+                <div class="bn-icon"><i class="fa-solid fa-house"></i></div>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="bn-item" data-target="single-search-view" id="bn-analise">
+                <div class="bn-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <span>Análise</span>
+            </a>
+            <a href="#" class="bn-item" data-target="bulk-search-view" id="bn-cruzamento">
+                <div class="bn-icon"><i class="fa-solid fa-file-excel"></i></div>
+                <span>Cruzamento</span>
+            </a>
+            <a href="#" class="bn-item" data-target="report-view" id="bn-relatorio">
+                <div class="bn-icon"><i class="fa-solid fa-table-list"></i></div>
+                <span>Relatório</span>
+            </a>
+            <a href="#" class="bn-item" data-target="hygiene-history-view" id="bn-hygiene" style="display:none;">
+                <div class="bn-icon"><i class="fa-solid fa-shield-heart"></i></div>
+                <span>Higienização</span>
+            </a>
+            <a href="#" class="bn-item" data-target="admin-view" id="bn-admin" style="display:none;">
+                <div class="bn-icon"><i class="fa-solid fa-users-gear"></i></div>
+                <span>Admin</span>
+            </a>
+            <button class="bn-item bn-item-logout" id="bn-logout" title="Sair">
+                <div class="bn-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+                <span>Sair</span>
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <section id="dashboard-view" class="view-section active">
+                <!-- ============================================= -->
+                <!-- DASHBOARD HERO — título + KPIs integrados     -->
+                <!-- ============================================= -->
+                <div class="dash-hero">
+                    <div class="dash-hero-bg"></div>
+                    <div class="dash-hero-inner">
+                        <!-- Cabeçalho -->
+                        <div class="dash-hero-head">
+                            <div class="dash-hero-left">
+                                <div class="dash-hero-badge">
+                                    <i class="fa-solid fa-chart-line"></i> Painel Analítico
+                                </div>
+                                <h1 class="dash-hero-title">Visão de Dados <span class="text-gradient">DataCross</span></h1>
+                                <p class="dash-hero-sub">Indicadores consolidados de todas as bases integradas.</p>
+                            </div>
+                            <div class="dash-hero-date" id="dth-date"></div>
+                        </div>
+                        <!-- KPI Cards -->
+                        <div class="dash-hero-kpis">
+                            <div class="dash-kpi-card" style="--kpi-color:#60A5FA; --kpi-bg:rgba(59,130,246,0.1);">
+                                <div class="dash-kpi-icon"><i class="fa-solid fa-database"></i></div>
+                                <div class="dash-kpi-info">
+                                    <span class="dash-kpi-value" id="kpi-total-registros">—</span>
+                                    <span class="dash-kpi-label">Total de Registros</span>
+                                </div>
+                            </div>
+                            <div class="dash-kpi-card" style="--kpi-color:#34D399; --kpi-bg:rgba(16,185,129,0.1);">
+                                <div class="dash-kpi-icon"><i class="fa-solid fa-bullseye"></i></div>
+                                <div class="dash-kpi-info">
+                                    <span class="dash-kpi-value" id="kpi-alcancaveis">—</span>
+                                    <span class="dash-kpi-label">Alcançáveis</span>
+                                </div>
+                            </div>
+                            <div class="dash-kpi-card" style="--kpi-color:#FBBF24; --kpi-bg:rgba(245,158,11,0.1);">
+                                <div class="dash-kpi-icon"><i class="fa-solid fa-chart-simple"></i></div>
+                                <div class="dash-kpi-info">
+                                    <span class="dash-kpi-value" id="kpi-completude">—</span>
+                                    <span class="dash-kpi-label">Completude Média
+                                        <i class="fa-solid fa-circle-info" style="font-size:0.75rem; color:var(--text-sec); cursor:help; margin-left:3px;"
+                                           title="Mede se E-mail/Celular/Endereço estão preenchidos — não valida se o dado é correto."></i>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="dash-kpi-card" style="--kpi-color:#A78BFA; --kpi-bg:rgba(139,92,246,0.1);">
+                                <div class="dash-kpi-icon"><i class="fa-solid fa-layer-group"></i></div>
+                                <div class="dash-kpi-info">
+                                    <span class="dash-kpi-value" id="kpi-bases">6</span>
+                                    <span class="dash-kpi-label">Bases Integradas</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ============================================= -->
+                <!-- PANELS TAB BAR                               -->
+                <!-- ============================================= -->
+                <div class="dash-panel-tabs" id="dash-panel-tabs">
+                    <button class="dash-panel-tab active" data-tab="attention">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Requer Atenção</span>
+                        <span class="dash-tab-badge" id="tab-badge-attention">0</span>
+                    </button>
+                    <button class="dash-panel-tab" data-tab="hygiene" id="dash-tab-hygiene" style="display:none;">
+                        <i class="fa-solid fa-shield-heart"></i>
+                        <span>Higienização</span>
+                        <span class="dash-tab-badge dash-tab-badge-green" id="tab-badge-hygiene">0</span>
+                    </button>
+                    <button class="dash-panel-tab" data-tab="quota">
+                        <i class="fa-solid fa-wallet"></i>
+                        <span>Monitoramento de Cotas</span>
+                    </button>
+                </div>
+
+                <!-- ============================================= -->
+                <!-- PANELS CONTENT                               -->
+                <!-- ============================================= -->
+                <div class="dashboard-panels-grid" id="dashboard-panels-grid">
+                <div class="attention-panel" id="attention-panel">
+                    <div class="attention-header">
+                        <div class="attention-title-row">
+                            <div class="attention-title">
+                                <i class="fa-solid fa-triangle-exclamation attention-pulse-icon"></i>
+                                <h2>Requer Atenção</h2>
+                                <span class="attention-badge" id="attention-total-badge">0</span>
+                            </div>
+                            <div class="attention-actions" style="display:flex; gap:10px;">
+                                <div class="quota-status-badge">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span>Consulta via Cache</span>
+                                </div>
+                                <button class="btn-attention-export" id="btn-export-attention" title="Exportar para Excel">
+                                    <i class="fa-solid fa-file-excel"></i> Exportar XLSX
+                                </button>
+                            </div>
+                        </div>
+                        <p class="attention-subtitle">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            Novos cadastros nos últimos <strong>7 dias</strong> sem e-mail e telefone — VTWeb Admin (Mercury)
+                        </p>
+                        <div class="attention-info-banner" id="attention-updated-banner">
+                            <i class="fa-regular fa-clock"></i>
+                            <span>Carregando informações...</span>
+                        </div>
+                    </div>
+
+                    <!-- Attention KPI Mini Cards -->
+                    <div class="attention-kpi-row" id="attention-kpi-row">
+                        <div class="attention-kpi-card attention-kpi-total">
+                            <i class="fa-solid fa-users-slash"></i>
+                            <div class="attention-kpi-data">
+                                <span class="attention-kpi-value" id="att-kpi-total">—</span>
+                                <span class="attention-kpi-label">Total Incompletos</span>
+                            </div>
+                        </div>
+                        <div class="attention-kpi-card attention-kpi-resp">
+                            <i class="fa-solid fa-user-tie"></i>
+                            <div class="attention-kpi-data">
+                                <span class="attention-kpi-value" id="att-kpi-responsaveis">—</span>
+                                <span class="attention-kpi-label">Responsáveis</span>
+                            </div>
+                        </div>
+                        <div class="attention-kpi-card attention-kpi-recent">
+                            <i class="fa-solid fa-clock"></i>
+                            <div class="attention-kpi-data">
+                                <span class="attention-kpi-value" id="att-kpi-recent">—</span>
+                                <span class="attention-kpi-label">Últimas 24h</span>
+                            </div>
+                        </div>
+                        <div class="attention-kpi-card attention-kpi-type">
+                            <i class="fa-solid fa-tags"></i>
+                            <div class="attention-kpi-data">
+                                <span class="attention-kpi-value" id="att-kpi-types">—</span>
+                                <span class="attention-kpi-label">Tipos de Cadastro</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Breakdown Charts -->
+                    <div class="attention-analytics-row" id="attention-analytics-row">
+                        <div class="attention-chart-card">
+                            <h3><i class="fa-solid fa-chart-bar" style="color: #FBBF24;"></i> Cadastros por Responsável</h3>
+                            <div id="attention-resp-bars"></div>
+                        </div>
+                        <div class="attention-chart-card">
+                            <h3><i class="fa-solid fa-calendar-week" style="color: #60A5FA;"></i> Cadastros por Dia (Últimos 7 dias)</h3>
+                            <div id="attention-timeline-bars"></div>
+                        </div>
+                        <div class="attention-chart-card">
+                            <h3><i class="fa-solid fa-tags" style="color: #A78BFA;"></i> Cadastros por Tipo</h3>
+                            <div id="attention-type-bars"></div>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div class="attention-table-section">
+                        <div class="attention-table-header">
+                            <h3><i class="fa-solid fa-list-check" style="color: #F87171;"></i> Detalhamento dos Cadastros</h3>
+                            <div class="attention-table-controls">
+                                <div class="attention-filter-group">
+                                    <label>Responsável:</label>
+                                    <select id="attention-filter-resp" class="attention-filter-select">
+                                        <option value="">Todos</option>
+                                    </select>
+                                </div>
+                                <span class="attention-count-label" id="attention-showing-count">Mostrando 0 registros</span>
+                            </div>
+                        </div>
+                        <div class="attention-table-wrap">
+                            <table class="attention-table" id="attention-table">
+                                <thead>
+                                    <tr>
+                                        <th>CPF</th>
+                                        <th>Nome</th>
+                                        <th>Tipo</th>
+                                        <th>Data Nascimento</th>
+                                        <th>Endereço</th>
+                                        <th>Pendência</th>
+                                        <th>Registrado Por</th>
+                                        <th>Data Criação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attention-table-body">
+                                    <tr>
+                                        <td colspan="8" style="text-align: center; color: var(--text-sec); padding: 40px;">
+                                            <div class="modern-spinner" style="width:30px;height:30px;border-width:2px;margin:0 auto 10px;"></div>
+                                            Carregando cadastros incompletos...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hygiene-dashboard-panel" id="hygiene-dashboard-panel">
+                    <div class="hygiene-header">
+                        <div class="hygiene-title-row">
+                            <div class="hygiene-title">
+                                <i class="fa-solid fa-shield-heart hygiene-title-icon"></i>
+                                <h2>Estatística de Higienização</h2>
+                                <span class="hygiene-badge" id="hygiene-total-badge">0</span>
+                            </div>
+                            <div class="attention-actions" style="display:flex; gap:10px;">
+                                <div class="quota-status-badge">
+                                    <i class="fa-solid fa-lock"></i>
+                                    <span>Painel restrito</span>
+                                </div>
+                                <button class="btn-attention-export" id="btn-export-hygiene-dashboard" title="Exportar para Excel">
+                                    <i class="fa-solid fa-file-excel"></i> Exportar XLSX
+                                </button>
+                            </div>
+                        </div>
+                        <p class="hygiene-subtitle">
+                            <i class="fa-solid fa-users-gear"></i>
+                            Quantidade de cartões higienizados por operador no DataCross.
+                        </p>
+                        <div class="hygiene-info-banner" id="hygiene-updated-banner">
+                            <i class="fa-regular fa-clock"></i>
+                            <span>Carregando estatísticas de higienização...</span>
+                        </div>
+                    </div>
+
+                    <div class="hygiene-kpi-row">
+                        <div class="hygiene-kpi-card hygiene-kpi-total">
+                            <i class="fa-solid fa-shield-heart"></i>
+                            <div class="hygiene-kpi-data">
+                                <span class="hygiene-kpi-value" id="hygiene-kpi-total-cartoes">—</span>
+                                <span class="hygiene-kpi-label">Cartões Higienizados</span>
+                            </div>
+                        </div>
+                        <div class="hygiene-kpi-card hygiene-kpi-operators">
+                            <i class="fa-solid fa-user-group"></i>
+                            <div class="hygiene-kpi-data">
+                                <span class="hygiene-kpi-value" id="hygiene-kpi-operadores">—</span>
+                                <span class="hygiene-kpi-label">Operadores</span>
+                            </div>
+                        </div>
+                        <div class="hygiene-kpi-card hygiene-kpi-today">
+                            <i class="fa-solid fa-calendar-day"></i>
+                            <div class="hygiene-kpi-data">
+                                <span class="hygiene-kpi-value" id="hygiene-kpi-hoje">—</span>
+                                <span class="hygiene-kpi-label">Cartões Hoje</span>
+                            </div>
+                        </div>
+                        <div class="hygiene-kpi-card hygiene-kpi-batches">
+                            <i class="fa-solid fa-layer-group"></i>
+                            <div class="hygiene-kpi-data">
+                                <span class="hygiene-kpi-value" id="hygiene-kpi-lotes">—</span>
+                                <span class="hygiene-kpi-label">Lotes Processados</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="hygiene-analytics-row">
+                        <div class="attention-chart-card">
+                            <h3><i class="fa-solid fa-ranking-star" style="color: #34D399;"></i> Ranking por Operador</h3>
+                            <div id="hygiene-ranking-bars"></div>
+                        </div>
+                        <div class="attention-chart-card">
+                            <h3><i class="fa-solid fa-chart-column" style="color: #60A5FA;"></i> Cartões por Dia (Últimos 14 dias)</h3>
+                            <div id="hygiene-daily-bars"></div>
+                        </div>
+                    </div>
+
+                    <div class="hygiene-table-section attention-table-section">
+                        <div class="attention-table-header">
+                            <h3><i class="fa-solid fa-list-check" style="color: #34D399;"></i> Lotes de Higienização</h3>
+                            <div class="attention-table-controls">
+                                <div class="attention-filter-group">
+                                    <label>Operador:</label>
+                                    <select id="hygiene-filter-user" class="attention-filter-select">
+                                        <option value="">Todos</option>
+                                    </select>
+                                </div>
+                                <span class="attention-count-label" id="hygiene-showing-count">Mostrando 0 registros</span>
+                            </div>
+                        </div>
+                        <div class="attention-table-wrap">
+                            <table class="attention-table" id="hygiene-table">
+                                <thead>
+                                    <tr>
+                                        <th>Operador</th>
+                                        <th>Cartões</th>
+                                        <th>Data</th>
+                                        <th>CPFs</th>
+                                        <th>Cartões Exemplo</th>
+                                        <th>Observação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hygiene-table-body">
+                                    <tr>
+                                        <td colspan="6" style="text-align: center; color: var(--text-sec); padding: 40px;">
+                                            <div class="modern-spinner" style="width:30px;height:30px;border-width:2px;margin:0 auto 10px;"></div>
+                                            Carregando histórico de higienização...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quota-panel" id="quota-panel">
+                    <div class="quota-header">
+                        <div class="quota-title-row">
+                            <div class="quota-title">
+                                <i class="fa-solid fa-wallet quota-title-icon"></i>
+                                <div>
+                                    <h2>Monitoramento de Cotas</h2>
+                                    <p class="quota-subtitle" id="quota-subtitle">Clientes do Escolar que excederam o limite de R$ 150,00 no periodo selecionado.</p>
+                                </div>
+                            </div>
+                            <div class="quota-actions">
+                                <div class="quota-status-badge" id="quota-status-badge">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span>Consulta sob demanda</span>
+                                </div>
+                                <button class="btn-attention-export" id="btn-export-quota" title="Exportar para Excel">
+                                    <i class="fa-solid fa-file-excel"></i> Exportar XLSX
+                                </button>
+                            </div>
+                        </div>
+                        <div class="quota-info-banner" id="quota-updated-banner">
+                            <i class="fa-regular fa-clock"></i>
+                            <span>Carregando informacoes...</span>
+                        </div>
+                    </div>
+
+                    <div class="quota-filters" id="quota-filters">
+                        <div class="quota-filter-row">
+                            <div class="quota-filter-label">
+                                <i class="fa-solid fa-calendar-days"></i>
+                                <span>Periodo:</span>
+                            </div>
+                            <div class="quota-filter-chips" id="quota-month-chips">
+                                <div class="quota-filter-chip" data-month="1">Jan</div>
+                                <div class="quota-filter-chip" data-month="2">Fev</div>
+                                <div class="quota-filter-chip" data-month="3">Mar</div>
+                                <div class="quota-filter-chip" data-month="4">Abr</div>
+                                <div class="quota-filter-chip" data-month="5">Mai</div>
+                                <div class="quota-filter-chip" data-month="6">Jun</div>
+                                <div class="quota-filter-chip" data-month="7">Jul</div>
+                                <div class="quota-filter-chip" data-month="8">Ago</div>
+                                <div class="quota-filter-chip" data-month="9">Set</div>
+                                <div class="quota-filter-chip" data-month="10">Out</div>
+                                <div class="quota-filter-chip" data-month="11">Nov</div>
+                                <div class="quota-filter-chip" data-month="12">Dez</div>
+                            </div>
+                            <div class="quota-filter-divider"></div>
+                            <div class="quota-filter-chips quota-filter-years" id="quota-year-chips"></div>
+                        </div>
+                        <div class="quota-filter-row">
+                            <div class="quota-filter-label">
+                                <i class="fa-solid fa-id-card"></i>
+                                <span>Aplicacao:</span>
+                            </div>
+                            <div class="quota-filter-chips" id="quota-application-chips">
+                                <div class="quota-filter-chip active" data-application-id="910">Escolar</div>
+                                <div class="quota-filter-chip" data-application-id="400">Vale Transporte</div>
+                                <div class="quota-filter-chip" data-application-id="500">Comum</div>
+                                <div class="quota-filter-chip" data-application-id="505">P Social</div>
+                            </div>
+                        </div>
+                        <div class="quota-filter-row">
+                            <div class="quota-filter-label">
+                                <i class="fa-solid fa-filter-circle-dollar"></i>
+                                <span>Tipo:</span>
+                            </div>
+                            <div class="quota-filter-chips" id="quota-transaction-profile-chips">
+                                <div class="quota-filter-chip active" data-profile="all">Ambas</div>
+                                <div class="quota-filter-chip" data-profile="purchase_only">Compras</div>
+                                <div class="quota-filter-chip" data-profile="transfer_only">Transferencia</div>
+                                <div class="quota-filter-chip" data-profile="admin_only">Lanc. Adm.</div>
+                            </div>
+                        </div>
+                        <div class="quota-filter-row">
+                            <div class="quota-filter-label">
+                                <i class="fa-solid fa-sliders"></i>
+                                <span>Limite:</span>
+                            </div>
+                            <div class="quota-limit-box">
+                                <span>R$</span>
+                                <input type="number" id="quota-limit-input" min="0" step="10" value="150">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quota-metrics-grid">
+                        <div class="quota-metric-card quota-metric-primary">
+                            <div class="quota-metric-icon"><i class="fa-solid fa-users"></i></div>
+                            <div class="quota-metric-content">
+                                <h3 id="quota-total-users">0</h3>
+                                <p>Clientes Excedentes</p>
+                            </div>
+                        </div>
+                        <div class="quota-metric-card quota-metric-danger">
+                            <div class="quota-metric-icon"><i class="fa-solid fa-coins"></i></div>
+                            <div class="quota-metric-content">
+                                <h3 id="quota-total-value">R$ 0,00</h3>
+                                <p>Valor Total Comprado</p>
+                            </div>
+                        </div>
+                        <div class="quota-metric-card quota-metric-accent">
+                            <div class="quota-metric-icon"><i class="fa-solid fa-receipt"></i></div>
+                                <div class="quota-metric-content">
+                                <h3 id="quota-total-transactions">0</h3>
+                                <p>Total de Transacoes</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="quota-global-loader" class="glass-panel hidden" style="margin-bottom: 24px;">
+                        <div class="quota-progress-wrapper" id="quota-loader-ui">
+                            <div class="quota-progress-title">Analisando transações...</div>
+                            <div class="quota-progress-subtext">Processando registros na base de dados para o período. A barra avançará rapidamente.</div>
+                            <div class="quota-progress-bar-bg">
+                                <div class="quota-progress-bar-fill" id="quota-progress-bar"></div>
+                            </div>
+                            <div class="quota-progress-stats">
+                                <span class="text-muted" id="quota-progress-msg">Iniciando consulta...</span>
+                                <span class="quota-progress-percentage" id="quota-progress-pct">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="quota-content-grid" id="quota-content-grid">
+                        <div class="quota-card">
+                            <div class="quota-card-header">
+                                <div>
+                                    <h3><i class="fa-solid fa-ranking-star"></i> Ranking de Clientes</h3>
+                                    <p>Clique no cliente para ver o historico de compras e transferencias</p>
+                                </div>
+                                <div class="quota-search-box">
+                                    <i class="fa-solid fa-search"></i>
+                                    <input type="text" id="quota-search-input" placeholder="Buscar cliente...">
+                                </div>
+                            </div>
+                            <div class="quota-ranking-list-wrapper">
+                                <div id="quota-ranking-list" class="quota-ranking-list">
+                                    <div class="quota-empty-state">Carregando monitoramento de cotas...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="quota-card">
+                            <div class="quota-card-header">
+                                <div>
+                                    <h3><i class="fa-solid fa-chart-line"></i> Decorrencia Diaria</h3>
+                                    <p id="quota-chart-subtitle">Volume de recargas por dia</p>
+                                </div>
+                            </div>
+                            <div class="quota-chart-wrapper">
+                                <canvas id="quota-daily-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="quota-modal" class="modal-overlay hidden">
+                    <div class="quota-modal-card glass-panel">
+                        <div class="quota-modal-header">
+                            <div class="quota-modal-title-area">
+                                <div class="quota-modal-avatar" id="quota-modal-avatar">QT</div>
+                                <div>
+                                    <h2 id="quota-modal-user-name">Cliente</h2>
+                                    <p id="quota-modal-user-cpf">CPF: -</p>
+                                    <p id="quota-modal-user-card" class="quota-modal-card-info"></p>
+                                    <p id="quota-modal-user-periods" class="quota-modal-card-info"></p>
+                                    <div id="quota-modal-user-badges" style="margin-top: 10px; display:flex; gap: 8px; flex-wrap:wrap; align-items:center;"></div>
+                                </div>
+                            </div>
+                            <button class="modal-close" id="quota-modal-close"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <div class="quota-modal-body">
+                            <div class="quota-modal-metrics">
+                                <div class="quota-modal-metric quota-modal-metric-primary">
+                                    <i class="fa-solid fa-wallet"></i>
+                                    <div>
+                                        <span>Total Comprado</span>
+                                        <h4 id="quota-modal-total-user">R$ 0,00</h4>
+                                    </div>
+                                </div>
+                                <div class="quota-modal-metric quota-modal-metric-accent">
+                                    <i class="fa-solid fa-calendar-days"></i>
+                                    <div>
+                                        <span>Dias com Recarga</span>
+                                        <h4 id="quota-modal-total-days">0</h4>
+                                    </div>
+                                </div>
+                                <div class="quota-modal-metric quota-modal-metric-danger">
+                                    <i class="fa-solid fa-arrow-trend-up"></i>
+                                    <div>
+                                        <span>Excedente</span>
+                                        <h4 id="quota-modal-excess">R$ 0,00</h4>
+                                    </div>
+                                </div>
+                                <div class="quota-modal-metric quota-modal-metric-primary" id="quota-modal-metric-purchases" style="display: none;">
+                                    <i class="fa-solid fa-cart-shopping"></i>
+                                    <div>
+                                        <span>Compras</span>
+                                        <h4 id="quota-modal-total-purchases">R$ 0,00</h4>
+                                    </div>
+                                </div>
+                                <div class="quota-modal-metric quota-modal-metric-primary" id="quota-modal-metric-transfers" style="display: none;">
+                                    <i class="fa-solid fa-right-left"></i>
+                                    <div>
+                                        <span>Transferências</span>
+                                        <h4 id="quota-modal-total-transfers">R$ 0,00</h4>
+                                    </div>
+                                </div>
+                                <div class="quota-modal-metric quota-modal-metric-primary" id="quota-modal-metric-admin" style="display: none;">
+                                    <i class="fa-solid fa-user-shield"></i>
+                                    <div>
+                                        <span>Lançamentos Adm.</span>
+                                        <h4 id="quota-modal-total-admin">R$ 0,00</h4>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="quota-modal-chart-wrapper">
+                                <canvas id="quota-user-days-chart"></canvas>
+                            </div>
+                            <div class="quota-modal-table-wrapper">
+                                <table class="quota-modal-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Data / Hora</th>
+                                            <th>Periodo</th>
+                                            <th>Cartao</th>
+                                            <th>Valor / Tipo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="quota-modal-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                </div><!-- /dashboard-panels-grid -->
+
+                <!-- kpi-strip removido — KPIs integrados no dash-hero acima -->
+
+                <!-- Insight: Anomalias Estudantis -->
+                <div class="esm-panel" id="esm-panel">
+                    <div class="esm-panel-header">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Anomalias Estudantis</span>
+                    </div>
+                    <div class="esm-panel-grid">
+                        <!-- Card 1: Existe no Mercury, mas sem cartão 58.03 -->
+                        <div class="esm-insight-card esm-card-cartao">
+                            <div class="esm-ic-top">
+                                <div class="esm-ic-icon"><i class="fa-solid fa-id-card-clip"></i></div>
+                                <div class="esm-ic-info">
+                                    <span class="esm-ic-title">Aprovado sem Cartão Estudantil</span>
+                                    <span class="esm-ic-sub">Existe no Mercury, mas sem cartão tipo <code>58.03</code></span>
+                                </div>
+                            </div>
+                            <div class="esm-ic-bottom">
+                                <span class="esm-ic-count" id="esm-count-cartao">
+                                    <span class="esm-loading-dot"></span>
+                                    <span class="esm-loading-dot"></span>
+                                    <span class="esm-loading-dot"></span>
+                                </span>
+                                <button class="esm-export-btn" id="btn-esm-export-cartao" disabled>
+                                    <i class="fa-solid fa-file-excel"></i> Exportar XLSX
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Card 2: Aprovado mas não existe no Mercury -->
+                        <div class="esm-insight-card esm-card-mercury">
+                            <div class="esm-ic-top">
+                                <div class="esm-ic-icon"><i class="fa-solid fa-user-xmark"></i></div>
+                                <div class="esm-ic-info">
+                                    <span class="esm-ic-title">Aprovado sem Cadastro no Mercury</span>
+                                    <span class="esm-ic-sub">Requisição aprovada, mas não existe no SALES_CAD_UNICO_JSON</span>
+                                </div>
+                            </div>
+                            <div class="esm-ic-bottom">
+                                <span class="esm-ic-count" id="esm-count-mercury">
+                                    <span class="esm-loading-dot"></span>
+                                    <span class="esm-loading-dot"></span>
+                                    <span class="esm-loading-dot"></span>
+                                </span>
+                                <button class="esm-export-btn" id="btn-esm-export-mercury" disabled>
+                                    <i class="fa-solid fa-file-excel"></i> Exportar XLSX
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bases Integradas -->
+                <div class="dash-section-label">
+                    <i class="fa-solid fa-database"></i> Bases Integradas
+                </div>
+                <div class="dashboard-banner hidden" id="dashboard-updated-banner"></div>
+                <div class="stats-grid" id="stats-container">
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                </div>
+
+                <!-- Analytics Unificado -->
+                <div class="bases-analytics-panel glass-panel hidden" id="bases-analytics-panel" style="margin-top: 20px;">
+                    <div class="bap-header">
+                        <div>
+                            <h3 class="bap-title"><i class="fa-solid fa-magnifying-glass-chart"></i> Análise de Qualidade</h3>
+                            <p class="bap-desc">Completude dos dados de contato por base integrada</p>
+                        </div>
+                        <div class="bap-tab-row">
+                            <button class="bap-tab active" data-bap="table"><i class="fa-solid fa-table-cells"></i> Tabela</button>
+                            <button class="bap-tab" data-bap="charts"><i class="fa-solid fa-chart-pie"></i> Gráficos</button>
+                            <button class="bap-tab" data-bap="gaps"><i class="fa-solid fa-circle-exclamation"></i> Lacunas</button>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Tabela comparativa (default) -->
+                    <div class="bap-view" id="bap-view-table">
+                        <div id="bases-comparison-table-container"></div>
+                    </div>
+
+                    <!-- Tab: Gráficos -->
+                    <div class="bap-view hidden" id="bap-view-charts">
+                        <div id="dashboard-charts">
+                            <div class="bap-chart-header">
+                                <div>
+                                    <h4 class="bap-chart-title"><i class="fa-solid fa-chart-bar" style="color:#60A5FA"></i> Completude por Base e Métrica</h4>
+                                    <p class="bap-chart-desc">Percentual de registros <strong>com</strong> cada dado de contato — quanto maior, melhor.</p>
+                                </div>
+                            </div>
+                            <div class="bap-hbar-wrap">
+                                <canvas id="hbarChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Lacunas -->
+                    <div class="bap-view hidden" id="bap-view-gaps">
+                        <div id="dashboard-gaps">
+                            <p class="bap-gaps-desc"><i class="fa-solid fa-circle-exclamation" style="color:var(--warning)"></i> Percentual de registros <strong>sem</strong> informação de contato — quanto menor, melhor.</p>
+                            <div id="gaps-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Single Search View -->
+            <section id="single-search-view" class="view-section hidden">
+                <header class="section-header">
+                    <h1>Análise do Cliente</h1>
+                    <p>Pesquise um CPF ou Cartão (ex: 58.13...) para visualizar o histórico completo, vínculos
+                        unificados e o saldo atual.</p>
+                </header>
+
+                <div class="search-box glass-panel">
+                    <form id="single-search-form">
+                        <div class="input-group">
+                            <i class="fa-solid fa-id-card input-icon"></i>
+                            <input type="text" id="cpf-input" placeholder="Digite CPF ou número do Cartão..."
+                                autocomplete="off" required>
+                            <button type="submit" class="btn-primary" id="btn-search-cpf">
+                                <span>Pesquisar</span>
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Single Search Loading -->
+                <div id="single-search-loader" class="loader-wrapper hidden" style="padding: 100px 0;">
+                    <div class="modern-spinner"></div>
+                    <div class="loader-text">Buscando histórico completo...</div>
+                    <div class="loader-subtext">Varrendo 6 bases de dados atrás de registros do cliente.</div>
+                </div>
+
+                <!-- Single Search Results -->
+                <div id="single-search-results" class="results-container hidden">
+                    <!-- Injected via JS -->
+                </div>
+            </section>
+
+            <!-- Bulk Search View -->
+            <section id="bulk-search-view" class="view-section hidden">
+                <header class="section-header">
+                    <h1>Cruzamento em Massa</h1>
+                    <p>Faça o upload de uma planilha (CSV/XLSX) contendo CPFs na primeira coluna para extrair os dados
+                        de todas as 6 bases.</p>
+                </header>
+
+                <div class="upload-box glass-panel" id="drop-zone">
+                    <div class="upload-content">
+                        <div class="upload-icon">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <h3>Arraste sua planilha ou clique aqui</h3>
+                        <p>Formatos suportados: .xlsx, .csv (Tamanho máx: 50MB)</p>
+                        <p class="upload-limit-note"><i class="fa-solid fa-circle-info"></i> Limite: 300.000 CPFs por arquivo</p>
+                        <input type="file" id="file-input" accept=".xlsx, .csv" hidden>
+                        <div class="upload-actions">
+                            <button class="btn-outline"
+                                onclick="document.getElementById('file-input').click()">
+                                <i class="fa-solid fa-folder-open"></i> Selecionar Arquivo
+                            </button>
+                            <a href="/download_template" class="btn-template">
+                                <i class="fa-solid fa-download"></i> Baixar Modelo
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Painel de Preview da Planilha (antes de processar) -->
+                <div id="bulk-preview-panel" class="bulk-preview-panel hidden glass-panel">
+                    <!-- Preenchido dinamicamente pelo JS -->
+                </div>
+
+                <!-- Processing Dashboard -->
+                <div id="processing-dashboard" class="processing-container hidden glass-panel">
+                    <!-- Warning Banner -->
+                    <div id="bulk-processing-warning" class="bulk-warning-banner">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Importante: Não feche nem atualize esta página enquanto o processamento estiver em
+                            andamento.</span>
+                    </div>
+
+                    <div class="processing-header"
+                        style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 id="status-title" style="display:flex; align-items:center;">Processando Planilha... <div
+                                class="pulse-indicator" style="margin-left:8px;"></div>
+                        </h3>
+                        <!-- Moved Reset Button Here -->
+                        <button id="btn-new-bulk-search" class="btn-primary"
+                            style="padding: 8px 16px; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; display: none;">
+                            <i class="fa-solid fa-rotate-right" style="margin-right:6px;"></i> Novo Cruzamento
+                        </button>
+                    </div>
+
+                    <div class="progress-wrapper">
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-stats">
+                            <span id="progress-percentage">0%</span>
+                            <span id="status-msg" class="text-muted">Iniciando...</span>
+                        </div>
+                    </div>
+
+                    <!-- Live Feed Ticker -->
+                    <div id="live-feed" class="live-feed hidden">
+                        <div class="live-feed-header">
+                            <span class="live-dot"></span>
+                            Registros chegando ao vivo —
+                            <span id="live-count">0</span> / <span id="live-total">?</span>
+                        </div>
+                        <div id="live-feed-rows"></div>
+                    </div>
+
+                    <div id="results-summary" class="summary-grid hidden mt-3">
+                        <!-- Filled by JS -->
+                    </div>
+
+                    <div id="download-section" class="download-trigger hidden mt-3">
+                        <a href="#" id="download-btn" class="btn-success w-100">
+                            <i class="fa-solid fa-download"></i> Baixar Arquivo Processado
+                        </a>
+                    </div>
+                </div>
+
+                <!-- History Section -->
+                <div id="bulk-history-section" class="history-section hidden">
+                    <div class="history-header">
+                        <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary)"></i> Últimos
+                            Cruzamentos Realizados</h3>
+                        <p class="text-muted" style="margin:0; font-size: 0.85rem;">Histórico das últimas 10 extrações
+                            feitas pela equipe.</p>
+                    </div>
+                    <div class="history-table-container">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Arquivo</th>
+                                    <th>Data</th>
+                                    <th>Usuário</th>
+                                    <th>Total de CPFs</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulk-history-tbody">
+                                <tr>
+                                    <td colspan="5" style="text-align: center; color: var(--text-sec); padding: 20px;">
+                                        Carregando histórico...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Report View (BI) -->
+            <section id="report-view" class="view-section hidden">
+                <header class="section-header">
+                    <h1>Relatório de Clientes e Cartões Ativos</h1>
+                    <p>Filtre e liste dados cruzados de toda a base de cartões e aplicações integradas.
+                    </p>
+                </header>
+
+                <!-- Filters -->
+                <div class="search-box glass-panel mb-3">
+                    <form id="report-filters-form" class="report-filters report-filters-builder">
+                        <div class="report-builder-header">
+                            <div>
+                                <label>Filtro Avançado</label>
+                                <p class="report-builder-helper">Monte combinações com grupos E/OU usando apenas os campos disponíveis neste relatório.</p>
+                            </div>
+                            <div class="report-builder-actions">
+                                <button type="button" id="btn-report-clear-filters" class="btn-secondary">Limpar</button>
+                                <button type="submit" class="btn-primary"
+                                    style="padding: 10px 32px; height: 42px;">Filtrar
+                                    <i class="fa-solid fa-filter"></i></button>
+                            </div>
+                        </div>
+                        <div id="report-filter-builder" class="report-filter-builder"></div>
+                        <div id="report-filter-builder-loading" class="report-filter-builder-loading">
+                            <div class="report-filter-builder-loading-card">
+                                <div class="modern-spinner"></div>
+                                <div>
+                                    <strong>Carregando seus filtros salvos...</strong>
+                                    <p>Estamos restaurando a configuração do relatório para este usuário.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="report-builder-tip report-builder-help-strip">
+                            <span><i class="fa-regular fa-lightbulb"></i> Use o filtro para montar perguntas simples, como “quem tem saldo maior que zero” ou “quem usou o cartão em uma data”.</span>
+                            <button type="button" id="btn-report-filter-help" class="report-help-btn">
+                                <span>Como usar</span><i class="fa-regular fa-circle-question"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="report-filter-help-modal" class="modal-overlay hidden">
+                    <div class="modal-card glass-panel report-help-modal-card">
+                        <div class="report-help-header">
+                            <div>
+                                <h3><i class="fa-regular fa-circle-question"></i> Como usar o filtro</h3>
+                                <p>Monte a regra, clique em Filtrar e veja o resultado na tabela.</p>
+                            </div>
+                            <button type="button" id="report-filter-help-close" class="modal-close-btn" title="Fechar">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <div class="report-help-body">
+                            <div class="report-help-step">
+                                <span>1</span>
+                                <div><strong>Escolha o campo</strong><p>É a informação que você quer procurar, como Saldo, App ID, Tipo do Cartão ou Último Uso.</p></div>
+                            </div>
+                            <div class="report-help-step">
+                                <span>2</span>
+                                <div><strong>Escolha o operador</strong><p>É a comparação: igual a, maior que, na data, entre duas datas, vazio ou não vazio.</p></div>
+                            </div>
+                            <div class="report-help-step">
+                                <span>3</span>
+                                <div><strong>Preencha o valor</strong><p>Digite o número, selecione a opção ou informe a data. Depois clique em Filtrar.</p></div>
+                            </div>
+                        </div>
+
+                        <div class="report-help-examples">
+                            <strong>Exemplos prontos</strong>
+                            <div class="report-help-example">
+                                <span class="report-help-example-title">Clientes que usaram o cartão em uma data</span>
+                                <div><b>Campo:</b> Último Uso <b>Operador:</b> Na data <b>Valor:</b> 28/04/2026</div>
+                            </div>
+                            <div class="report-help-example">
+                                <span class="report-help-example-title">Cartões que ainda têm saldo</span>
+                                <div><b>Campo:</b> Saldo <b>Operador:</b> Maior que <b>Valor:</b> 0</div>
+                            </div>
+                            <div class="report-help-example">
+                                <span class="report-help-example-title">Vale Transporte ou Comum</span>
+                                <div>Adicione duas regras de <b>App ID</b>, uma com <b>400</b> e outra com <b>500</b>, e marque o grupo como <b>OU</b>.</div>
+                            </div>
+                            <div class="report-help-note">
+                                Use <b>E</b> quando tudo precisa ser verdade ao mesmo tempo. Use <b>OU</b> quando qualquer uma das opções serve.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legend / Informativo -->
+                <div class="legend-box mt-3 mb-2"
+                    style="background: rgba(16, 20, 26, 0.5); padding: 12px 16px; border-radius: var(--radius-md); border: 1px dashed rgba(255,255,255,0.1); display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                    <div
+                        style="font-size: 0.85rem; font-weight: 600; color: var(--text-sec); text-transform: uppercase;">
+                        <i class="fa-solid fa-circle-info" style="margin-right: 4px;"></i> Legenda de Origem do Contato:
+                    </div>
+                    <div style="display: flex; gap: 12px; font-size: 0.8rem; flex-wrap: wrap; align-items: center;">
+                        <span class="badge"
+                            style="background: rgba(236, 72, 153, 0.2); color: #F472B6; border: 1px solid rgba(236, 72, 153, 0.4);">MERCURY</span>
+                        <span class="text-muted">VTWeb Admin</span>
+                        <span class="badge"
+                            style="background: rgba(59, 130, 246, 0.2); color: #60A5FA; border: 1px solid rgba(59, 130, 246, 0.4);">CLIENTE</span>
+                        <span class="text-muted">Área do Cliente</span>
+                        <span class="badge"
+                            style="background: rgba(99, 102, 241, 0.2); color: #818CF8; border: 1px solid rgba(99, 102, 241, 0.4);">ABT</span>
+                        <span class="text-muted">Cadê meu Ônibus Recarga</span>
+                        <span class="badge"
+                            style="background: rgba(139, 92, 246, 0.2); color: #A78BFA; border: 1px solid rgba(139, 92, 246, 0.4);">ESTUDANTE</span>
+                        <span class="text-muted">Sou Estudante</span>
+                        <span class="badge"
+                            style="background: rgba(245, 158, 11, 0.2); color: #FBBF24; border: 1px solid rgba(245, 158, 11, 0.4);">WIFI</span>
+                        <span class="text-muted">Wifi Max</span>
+                        <span class="badge"
+                            style="background: rgba(34, 197, 94, 0.2); color: #4ADE80; border: 1px solid rgba(34, 197, 94, 0.4);">WHATSAPP</span>
+                        <span class="text-muted">WhatsApp</span>
+                        <span class="badge"
+                            style="background: rgba(255, 255, 255, 0.1); color: var(--text-sec); border: 1px solid rgba(255, 255, 255, 0.2);">S/A</span>
+                        <span class="text-muted">Apenas Base Física</span>
+                    </div>
+                </div>
+
+                <!-- Report Loader -->
+                <div id="report-loader" class="loader-wrapper hidden" style="padding: 50px 0;">
+                    <div class="modern-spinner"></div>
+                    <div class="loader-text mt-2">Buscando inteligência de dados...</div>
+                </div>
+
+                <!-- Report Data Cards -->
+                <div id="report-container" class="glass-panel hidden" style="margin-top: 24px;">
+                    <!-- Controls bar -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                        <span id="report-pagination-info" style="font-size: 0.9rem; color: var(--text-sec); font-weight: 500;">
+                            Aguardando filtro...
+                        </span>
+                        <div id="report-table-actions" style="display:flex; align-items:center; gap:12px; margin-left:auto;">
+                            <button type="button" id="btn-export-report" class="btn-primary hidden"
+                                style="position: static; background: var(--success); border-color: var(--success); padding: 8px 16px; font-size: 0.9rem; height: auto;">
+                                Exportar XLSX <i class="fa-solid fa-file-excel" style="margin-left: 6px;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sort Bar -->
+                    <div class="report-sort-bar" id="report-sort-bar">
+                        <span class="report-sort-label"><i class="fa-solid fa-arrow-up-wide-short"></i> Ordenar:</span>
+                        <div class="report-sort-chips">
+                            <button class="report-sort-chip active" data-sort="cpf">CPF <i class="fa-solid fa-arrow-up sort-arrow"></i></button>
+                            <button class="report-sort-chip" data-sort="nome">Nome <i class="fa-solid fa-arrow-up sort-arrow"></i></button>
+                            <button class="report-sort-chip" data-sort="cartao">Cartão <i class="fa-solid fa-arrow-up sort-arrow"></i></button>
+                            <button class="report-sort-chip" data-sort="uso">Uso <i class="fa-solid fa-arrow-up sort-arrow"></i></button>
+                            <button class="report-sort-chip" data-sort="recarga">Recarga <i class="fa-solid fa-arrow-up sort-arrow"></i></button>
+                            <button class="report-sort-chip" data-sort="recarga_pendente">Rec. Pendente <i class="fa-solid fa-arrow-up sort-arrow"></i></button>
+                            <button class="report-sort-chip" data-sort="saldo">Saldo <i class="fa-solid fa-arrow-up sort-arrow"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Cards list — rendered by JS -->
+                    <div id="report-table-body" class="report-cards-list"></div>
+
+                    <div class="pagination-footer mt-3">
+                        <span id="report-pagination-footer" class="text-muted text-sm">Mostrando 0 de 0</span>
+                        <div class="pagination-controls">
+                            <button id="btn-prev-page" class="btn-outline btn-sm" disabled><i
+                                    class="fa-solid fa-chevron-left"></i> Anterior</button>
+                            <span id="report-current-page" style="margin: 0 10px;">1</span>
+                            <button id="btn-next-page" class="btn-outline btn-sm" disabled>Próxima <i
+                                    class="fa-solid fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Hygiene History View -->
+            <section id="hygiene-history-view" class="view-section hidden">
+                <header class="section-header hh-header">
+                    <div class="hh-header-left">
+                        <div class="hh-header-icon"><i class="fa-solid fa-shield-heart"></i></div>
+                        <div>
+                            <h1>Histórico de Higienização</h1>
+                            <p>Consulte os lotes de higienização executados no DataCross.</p>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Painel de Jobs em Andamento (admin only) -->
+                <div id="hygiene-jobs-monitor" class="hygiene-jobs-monitor hidden">
+                    <div class="hjm-header">
+                        <span class="hjm-live-dot"></span>
+                        <span class="hjm-title">Higienizações em andamento</span>
+                        <span id="hjm-count" class="hjm-badge">0</span>
+                        <span class="hjm-subtitle">Atualiza a cada 5s — visível apenas para administradores</span>
+                        <button id="hjm-toggle" class="btn-attention-export hjm-toggle-btn" title="Recolher painel" onclick="toggleJobsMonitor()">
+                            <i class="fa-solid fa-chevron-up"></i> Recolher
+                        </button>
+                    </div>
+                    <div id="hjm-cards" class="hjm-cards">
+                        <div class="hjm-empty">Nenhum job em execução no momento.</div>
+                    </div>
+                </div>
+
+                <!-- Filtro -->
+                <div class="glass-panel hh-filter-panel mb-3">
+                    <div class="hh-filter-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:nowrap;gap:20px;padding:16px 20px;border-bottom:1px solid var(--border-color);">
+                        <div class="hh-filter-title" style="display:flex;align-items:center;gap:12px;min-width:0;">
+                            <i class="fa-solid fa-sliders" style="color:var(--accent-primary);flex-shrink:0;"></i>
+                            <div>
+                                <span class="hh-filter-label">FILTRO DO HISTÓRICO</span>
+                                <p class="hh-filter-helper">Monte regras simples para localizar lotes por data, operador, observação, quantidade, nome, CPF ou cartão.</p>
+                            </div>
+                        </div>
+                        <div style="display:flex;flex-direction:row;gap:10px;flex-shrink:0;align-items:center;">
+                            <button type="button" id="btn-hygiene-history-clear" class="btn-secondary" style="padding:10px 28px;height:42px;white-space:nowrap;">Limpar</button>
+                            <button type="button" id="btn-hygiene-history-filter" class="btn-primary" style="position:static;padding:10px 28px;height:42px;white-space:nowrap;">Filtrar <i class="fa-solid fa-filter"></i></button>
+                        </div>
+                    </div>
+                    <div id="hygiene-history-builder" class="hygiene-history-builder"></div>
+                    <div class="hh-filter-tip">
+                        <i class="fa-regular fa-lightbulb"></i>
+                        Use os filtros para localizar lotes por data, operador, observação, quantidade ou por um cliente específico. Clique em um lote para ver os cartões processados.
+                    </div>
+                </div>
+
+                <!-- Resultados -->
+                <div class="glass-panel hygiene-history-results">
+                    <div class="hh-results-header">
+                        <div class="hh-results-title">
+                            <i class="fa-solid fa-list-check"></i>
+                            <span>Lotes encontrados</span>
+                            <span class="hh-results-count" id="hygiene-history-count">Aguardando filtro...</span>
+                        </div>
+                        <div class="hygiene-history-table-controls">
+                            <label for="hygiene-history-page-size" class="hh-page-label">Mostrar</label>
+                            <select id="hygiene-history-page-size" class="form-control hh-page-select">
+                                <option value="15" selected>15</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            <span class="hh-page-suffix">por página</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="modern-table hh-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Operador</th>
+                                    <th>VTAdmin</th>
+                                    <th>Cartões</th>
+                                    <th>Observação</th>
+                                    <th>Filtro utilizado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hygiene-history-body">
+                                <tr>
+                                    <td colspan="6" class="hh-empty-state">
+                                        <i class="fa-solid fa-filter" style="font-size:1.5rem;opacity:0.2;"></i>
+                                        <div>Use o filtro acima para consultar o histórico.</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="hh-pagination">
+                        <span id="hygiene-history-pagination-info" class="hh-pagination-info">Página 0 de 0</span>
+                        <div class="pagination-controls">
+                            <button id="hygiene-history-prev-page" class="btn-secondary btn-sm" disabled>
+                                <i class="fa-solid fa-chevron-left"></i> Anterior
+                            </button>
+                            <span id="hygiene-history-current-page" class="hh-page-num">0</span>
+                            <button id="hygiene-history-next-page" class="btn-secondary btn-sm" disabled>
+                                Próxima <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Admin View -->
+            <section id="admin-view" class="view-section hidden">
+                <header class="section-header">
+                    <h1><i class="fa-solid fa-users-gear" style="color: var(--accent-primary);"></i> Administração de
+                        Usuários</h1>
+                    <p>Gerencie acessos e permissões dos usuários do sistema.</p>
+                </header>
+
+                <div class="glass-panel">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                        <h3 style="font-weight: 700;"><i class="fa-solid fa-list-check"
+                                style="color: var(--accent-primary); margin-right: 8px;"></i> Usuários Cadastrados</h3>
+                        <button id="btn-add-user" class="btn-primary" style="position: static;">
+                            <i class="fa-solid fa-user-plus"></i> Novo Usuário
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="modern-table" id="admin-users-table">
+                            <thead>
+                                <tr>
+                                    <th>Usuário</th>
+                                    <th>E-mail</th>
+                                    <th>Admin</th>
+                                    <th>Dashboard</th>
+                                    <th>Análise</th>
+                                    <th>Cruzamento</th>
+                                    <th>Relatório</th>
+                                    <th>Último Login</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-body">
+                                <!-- Loaded via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- User Modal -->
+            <div id="user-modal" class="modal-overlay hidden">
+                <div class="modal-card glass-panel">
+                    <div class="modal-header">
+                        <h3 id="modal-title"><i class="fa-solid fa-user-plus"
+                                style="color: var(--accent-primary); margin-right:8px;"></i> Novo Usuário</h3>
+                        <button class="modal-close" id="modal-close"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <form id="user-form">
+                        <input type="hidden" id="modal-user-id">
+                        <div class="login-field">
+                            <label><i class="fa-solid fa-user"></i> Usuário</label>
+                            <input type="text" id="modal-username" class="form-control" placeholder="Nome de usuário"
+                                required>
+                        </div>
+                        <div class="login-field">
+                            <label><i class="fa-solid fa-envelope"></i> E-mail</label>
+                            <input type="email" id="modal-email" class="form-control" placeholder="email@exemplo.com">
+                        </div>
+                        <div class="login-field" id="modal-password-group">
+                            <label><i class="fa-solid fa-lock"></i> Senha</label>
+                            <input type="password" id="modal-password" class="form-control"
+                                placeholder="Mínimo 4 caracteres">
+                        </div>
+                        <div class="perm-section">
+                            <label class="perm-section-label">Permissões de Acesso</label>
+                            <div class="perm-grid">
+                                <label class="perm-toggle">
+                                    <input type="checkbox" id="modal-perm-admin">
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label"><i class="fa-solid fa-crown"></i> Administrador</span>
+                                </label>
+                                <label class="perm-toggle">
+                                    <input type="checkbox" id="modal-perm-dashboard" checked>
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label"><i class="fa-solid fa-house"></i> Dashboard</span>
+                                </label>
+                                <label class="perm-toggle">
+                                    <input type="checkbox" id="modal-perm-analise" checked>
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label"><i class="fa-solid fa-magnifying-glass"></i> Análise do
+                                        Cliente</span>
+                                </label>
+                                <label class="perm-toggle">
+                                    <input type="checkbox" id="modal-perm-cruzamento" checked>
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label"><i class="fa-solid fa-file-excel"></i> Cruzamento em
+                                        Massa</span>
+                                </label>
+                                <label class="perm-toggle">
+                                    <input type="checkbox" id="modal-perm-relatorio" checked>
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-label"><i class="fa-solid fa-table-list"></i> Relatório</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div id="modal-error" class="login-error hidden"></div>
+                        <button type="submit" class="btn-login" id="modal-submit-btn">Criar Usuário</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Reset Password Modal -->
+            <div id="reset-pw-modal" class="modal-overlay hidden">
+                <div class="modal-card glass-panel" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h3><i class="fa-solid fa-key" style="color: var(--warning); margin-right:8px;"></i> Resetar
+                            Senha</h3>
+                        <button class="modal-close" id="reset-pw-close"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <form id="reset-pw-form">
+                        <input type="hidden" id="reset-pw-user-id">
+                        <p class="text-muted" style="margin-bottom: 16px;">Usuário: <strong
+                                id="reset-pw-username"></strong></p>
+                        <div class="login-field">
+                            <label><i class="fa-solid fa-lock"></i> Nova Senha</label>
+                            <input type="password" id="reset-pw-password" class="form-control"
+                                placeholder="Mínimo 4 caracteres" required>
+                        </div>
+                        <div id="reset-pw-error" class="login-error hidden"></div>
+                        <button type="submit" class="btn-login" style="background: var(--warning);">Resetar
+                            Senha</button>
+                    </form>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Template scripts -->
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=3.3"></script>
+</body>
+
+</html>

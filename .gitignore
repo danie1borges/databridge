@@ -1,0 +1,37 @@
+# Ambiente local
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Configuracao real de cada ambiente
+core/config.py
+.env
+
+# Arquivos gerados em execucao
+uploads/
+logs/
+*_cache.json
+attention_cache.json
+dashboard_cache.json
+quota_cache.json
+
+# IDE / sistema
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Testes e temporarios
+.pytest_cache/
+*.tmp
+*.bak
+
+# Scripts locais/diagnostico que podem conter dados de ambiente
+flatten_json.py
+teste.py
+test_*.py
+static/js/debug_encode.txt
+static/js/fix_encoding.py
