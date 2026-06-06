@@ -3,9 +3,10 @@
 Dashboard web para análise de dados de CRM — busca, higienização de cartões,
 relatórios e processamento em lote, com integração a bancos MySQL e Oracle.
 
-> **Versão pública.** Todos os nomes de empresa, URLs e credenciais foram removidos
-> ou substituídos por placeholders genéricos. Conecte ao seu próprio banco de dados
-> configurando `core/config.py` a partir do modelo `core/config.example.py`.
+> **Versão demonstrativa.** Este repositório é uma versão pública e simplificada de
+> uma plataforma de análise de dados que desenvolvi e mantive em produção em ambiente
+> corporativo. Todo o código foi sanitizado para fins de portfólio — sem dados reais,
+> credenciais ou identificadores internos.
 
 ---
 
