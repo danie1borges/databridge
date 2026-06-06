@@ -21,6 +21,7 @@ relatórios e processamento em lote, com integração a bancos MySQL e Oracle.
 ---
 
 ## Screenshots
+> Telas ilustrativas geradas com dados fictícios (Faker), sem nenhum dado real.
 
 | Login | Dashboard |
 |-------|-----------|
@@ -50,8 +51,8 @@ relatórios e processamento em lote, com integração a bancos MySQL e Oracle.
 ### 1. Clone o repositório
 
 ```bash
-git clone https://github.com/<seu-usuario>/databridge_analise.git
-cd databridge_analise
+git clone https://github.com/<seu-usuario>/databridge.git
+cd databridge
 ```
 
 ### 2. Crie um ambiente virtual e instale as dependências
@@ -111,7 +112,7 @@ Acesse `http://localhost:5004` no navegador.
 ## Estrutura do projeto
 
 ```
-databridge_analise/
+databridge/
 ├── app.py                    # Entrada da aplicação Flask + SocketIO
 ├── core/
 │   ├── config.example.py     # Modelo de configuração (sem credenciais)
